@@ -1,0 +1,8 @@
+defaults:
+  - mp_cfg: gcp_mp_psr.yaml
+
+pre_norm: false
+num_feedforward_layers: 2
+dropout: 0.1
+
+nonlinearity_slope: 1e-2

@@ -1,0 +1,23 @@
+_target_: src.models.gcpnet_lba_module.GCPNetLBALitModule
+
+layer_class:
+  _target_: src.models.components.gcpnet.GCPInteractions
+  _partial_: true
+
+optimizer:
+  _target_: torch.optim.Adam
+  _partial_: true
+  lr: 1e-4
+  weight_decay: 0
+
+scheduler:  # note: leaving `scheduler` empty will result in a learning-rate scheduler not being used
+  # _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
+  # _partial_: true
+  # mode: min
+  # factor: 0.1
+  # patience: 10
+
+defaults:
+  - model_cfg: gcp_model_lba.yaml
+  - module_cfg: gcp_module_lba.yaml
+  - layer_cfg: gcp_interaction_layer_lba.yaml

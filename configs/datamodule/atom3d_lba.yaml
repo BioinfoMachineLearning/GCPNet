@@ -1,0 +1,11 @@
+_target_: src.datamodules.atom3d_datamodule.ATOM3DDataModule
+task: LBA
+data_dir: ${paths.data_dir}ATOM3D
+lba_split: 30
+edge_cutoff: 4.5
+max_neighbors: 32
+max_units: 0
+unit: edge
+batch_size: 16
+num_workers: 4
+pin_memory: false

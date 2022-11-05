@@ -102,7 +102,6 @@ celerybeat.pid
 *.sage.py
 
 # Environments
-.env
 .venv
 env/
 venv/
@@ -127,3 +126,38 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+### VisualStudioCode
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+**/.vscode
+
+# JetBrains
+.idea/
+
+# Data & Models
+*.h5
+*.tar
+*.tar.gz
+
+# GCPNet
+fit-perf_logs.txt
+configs/local/*.yaml
+scripts/*_grid_search_runs.json
+scripts/*_grid_search_scripts/train_*.bash
+scripts/*_grid_search_scripts/*.out
+scripts/*_grid_search_scripts/*.done
+scripts/local/*.bash
+gcpnet/
+data/
+logs/
+.env
+.autoenv
+.hydra
+
+# NFS
+.nfs*

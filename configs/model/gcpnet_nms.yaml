@@ -1,0 +1,24 @@
+_target_: src.models.gcpnet_nms_module.GCPNetNMSLitModule
+
+layer_class:
+  _target_: src.models.components.gcpnet.GCPInteractions
+  _partial_: true
+  updating_node_positions: true
+
+optimizer:
+  _target_: torch.optim.Adam
+  _partial_: true
+  lr: 1e-4
+  weight_decay: 0
+
+scheduler:  # note: leaving `scheduler` empty will result in a learning-rate scheduler not being used
+  # _target_: torch.optim.lr_scheduler.StepLR
+  # _partial_: true
+  # step_size: ${...trainer.min_epochs} // 8  # note: using literal evalution manually until Hydra natively supports this functionality
+  # gamma: 0.9
+  # last_epoch: -1
+
+defaults:
+  - model_cfg: gcp_model_nms.yaml
+  - module_cfg: gcp_module_nms.yaml
+  - layer_cfg: gcp_interaction_layer_nms.yaml

@@ -1,0 +1,115 @@
+# @package _global_
+
+# to execute this experiment run:
+# python train.py experiment=gcpnet_lba_grid_search
+
+defaults:
+  - override /datamodule: atom3d_lba.yaml
+  - override /model: gcpnet_lba.yaml
+  - override /callbacks: default.yaml
+  - override /trainer: default.yaml
+
+# all parameters below will be merged with parameters from default configurations set above
+# this allows you to overwrite only specified parameters
+
+tags: ["gcpnet", "lba", "grid_search"]
+
+seed: 42
+
+callbacks:
+  model_checkpoint:
+    monitor: "val/loss"
+    save_top_k: 30
+  early_stopping:
+    monitor: "val/loss"
+
+trainer:
+  min_epochs: 100
+  max_epochs: 1000
+  strategy: ddp_find_unused_parameters_false
+  accelerator: gpu
+  devices: -1
+  num_nodes: 1
+  accumulate_grad_batches: 10
+
+paths:
+  grid_search_script_dir: scripts/lba_grid_search_scripts
+
+model:
+  optimizer:
+    lr: 1e-4
+    weight_decay: 0
+  
+  model_cfg:
+    h_hidden_dim: 100
+    chi_hidden_dim: 16
+    e_hidden_dim: 32
+    xi_hidden_dim: 4
+
+    output_scale_factor: 2
+
+    num_encoder_layers: 8
+    num_decoder_layers: 3
+    dropout: 0.1
+    dense_dropout: 0.1
+
+  module_cfg:
+    selected_GCP:
+      # which version of the GCP module to use (e.g., GCP or GCP2)
+      _target_: src.models.components.gcpnet.GCP2
+      _partial_: true
+
+    concatenate_lig_flag: false
+    norm_x_diff: true
+
+    scalar_gate: 0
+    vector_gate: true  # note: For both GCP and GCP2, this parameter is used;   For GCP2, this mimics updating vector features without directly using frame vectors
+    vector_residual: false  # note: For both GCP and GCP2, this parameter is used
+    vector_frame_residual: false  # note: for GCP2, this parameter is unused
+    frame_gate: false  # note: for GCP2, if this parameter and `vector_gate` are both set to `false`, row-wise vector self-gating is applied instead
+    sigma_frame_gate: false  # note: For GCP, this parameter overrides `frame_gate`;   For GCP2, this parameter is unused and is replaced in functionality by `vector_gate`
+
+    scalar_nonlinearity: relu
+    vector_nonlinearity: 
+
+    nonlinearities:
+      - ${..scalar_nonlinearity}
+      - ${..vector_nonlinearity}
+
+    bottleneck: 4
+
+    vector_linear: true
+    vector_identity: true
+
+    default_vector_residual: false
+    default_bottleneck: 4
+
+    ablate_frame_updates: false
+
+  layer_cfg:
+    mp_cfg:
+      edge_encoder: false
+      edge_gate: false
+      num_message_layers: 8
+      message_residual: 0
+      message_ff_multiplier: 1
+      self_message: true
+
+    pre_norm: false
+    num_feedforward_layers: 2
+    dropout: 0.1
+
+    nonlinearity_slope: 1e-2
+
+datamodule:
+  batch_size: 3
+  num_workers: 4
+
+logger:
+  wandb:
+    name: 10112022_GCPNet
+    group: "LBA"
+    tags: ${tags}
+
+train: true
+test: false

@@ -1,0 +1,16 @@
+chi_input_dim: 2
+e_input_dim: 16
+xi_input_dim: 1
+
+h_hidden_dim: 100
+chi_hidden_dim: 16
+e_hidden_dim: 32
+xi_hidden_dim: 4
+
+output_dim: 1
+output_scale_factor: 2
+
+num_encoder_layers: 8
+num_decoder_layers: 3
+dropout: 0.1
+dense_dropout: 0.1
