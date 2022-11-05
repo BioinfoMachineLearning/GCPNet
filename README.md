@@ -33,6 +33,7 @@ conda activate gcpnet
 Download data
 ```bash
 # initialize data directory structure
+mkdir -p data
 mkdir -p data/ATOM3D
 mkdir -p data/ATOM3D/LBA
 mkdir -p data/ATOM3D/PSR
