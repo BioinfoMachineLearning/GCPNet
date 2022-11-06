@@ -962,45 +962,5 @@ class GCPInteractions(nn.Module):
         return node_rep, node_pos
 
 
-class GCPMLPDecoder(nn.Module):
-    def __init__(
-        self,
-        hidden_dim: int,
-        vocab_size: int = 20,
-        num_layers: int = 1,
-        residual_updates: bool = False
-    ):
-        super().__init__()
-        self.residual_updates = residual_updates
-
-        readout_layers = [
-            nn.Linear(hidden_dim, hidden_dim) for _ in range(num_layers - 1)
-        ] + [nn.Linear(hidden_dim, vocab_size)]
-        self.readout = nn.ModuleList(readout_layers) if residual_updates else nn.Sequential(*readout_layers)
-
-    @typechecked
-    def residual_forward(
-        self,
-        h: TensorType["batch_num_nodes", "h_hidden_dim"]
-    ) -> TensorType["batch_num_nodes", "vocab_size"]:
-        h_readout = h
-        for layer in self.readout[:-1]:
-            h_readout = h_readout + layer(h_readout)
-        logits = self.readout[-1](h_readout)
-        return logits
-
-    @typechecked
-    def forward(
-        self,
-        h: TensorType["batch_num_nodes", "h_hidden_dim"]
-    ) -> Tuple[
-        TensorType["batch_num_nodes", "vocab_size"],
-        TensorType["batch_num_nodes", "vocab_size"]
-    ]:
-        logits = self.residual_forward(h) if self.residual_updates else self.readout(h)
-        log_probs = F.log_softmax(logits, dim=-1)
-        return logits, log_probs
-
-
 if __name__ == "__main__":
     _ = GCPInteractions()

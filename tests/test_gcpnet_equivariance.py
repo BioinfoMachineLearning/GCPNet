@@ -68,7 +68,6 @@ batch_size = 8
 edge_index = torch.randint(0, n_nodes, (2, n_edges), device=device)
 x = torch.randn(n_nodes, 3, device=device) + torch.randint(low=1, high=100, size=(1,), device=device)
 batch_idx = torch.randint(0, batch_size, (n_nodes,), device=device)
-seq = torch.randint(0, 20, (n_nodes,), device=device)
 
 # hyperparameters
 lba_cfg_filepath = os.path.join("configs", "model", "module_cfg", "gcp_module_lba.yaml")
