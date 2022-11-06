@@ -28,6 +28,9 @@ cd gcpnet/
 # create conda environment
 conda env create -f environment.yaml
 conda activate gcpnet
+
+# install local project as package
+pip3 install -e .
 ```
 
 Download data
