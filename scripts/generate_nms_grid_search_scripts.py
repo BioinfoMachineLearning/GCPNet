@@ -53,7 +53,7 @@ def build_arguments_string(
     run_id: str = wandb.util.generate_id()
 ) -> str:
     # substitute latest grid search parameter values into final line of latest script
-    final_line += f" logger=wandb logger.wandb.id={run_id} logger.wandb.name={run_name}_GCPv{run["gcp_version"]}"
+    final_line += f" logger=wandb logger.wandb.id={run_id} logger.wandb.name={run_name}_GCPv{run['gcp_version']}"
 
     # install a unique WandB run name
     for s, (key, value) in zip(run["key_names"].split(), items_to_show):
@@ -67,7 +67,7 @@ def build_arguments_string(
     final_line += f" ckpt_path={ckpt_path}"  # define name of latest checkpoint for resuming model
 
     # manually specify version of GCP module to use
-    final_line += f" model.module_cfg.selected_GCP._target_=src.models.components.gcpnet.GCP{run["gcp_version"]}"
+    final_line += f" model.module_cfg.selected_GCP._target_=src.models.components.gcpnet.GCP{run['gcp_version']}"
 
     # add each custom grid search argument
     for key, value in items_to_show:
@@ -87,8 +87,8 @@ def build_recursion_string(
         "wait\n",
         "\n",
         "# recursively launch a new job to resume model training if model training is not already concluded\n",
-        f"if ! [[ -f "{fit_end_indicator_filepath}" ]]; then\n",
-        f"    cd "$PROJDIR"/scripts/{TASK}_grid_search_scripts/ || exit\n",
+        f"if ! [[ -f '{fit_end_indicator_filepath}' ]]; then\n",
+        f"    cd '$PROJDIR'/scripts/{TASK}_grid_search_scripts/ || exit\n",
         f"    bsub {cur_script_filename}\n",
         f"fi\n"
     ]
