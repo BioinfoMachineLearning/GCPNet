@@ -9,7 +9,7 @@
 <!-- [![Conference](http://img.shields.io/badge/AnyConference-year-4b44ce.svg)](https://papers.nips.cc/paper/2020) -->
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.7293186.svg)](https://doi.org/10.5281/zenodo.7293186)
 
-![GCP_Architecture.png](./img/GCP.png)
+![GCP_Architecture.png](./img/GCPNet.png)
 
 </div>
 
