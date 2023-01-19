@@ -41,6 +41,8 @@ class GCP(nn.Module):
             vector_residual: bool = False,
             vector_frame_residual: bool = False,
             ablate_frame_updates: bool = False,
+            ablate_scalars: bool = False,
+            ablate_vectors: bool = False,
             scalarization_vectorization_output_dim: int = 3,
             **kwargs
     ):
@@ -59,6 +61,7 @@ class GCP(nn.Module):
         )
         self.vector_residual, self.vector_frame_residual = vector_residual, vector_frame_residual
         self.ablate_frame_updates = ablate_frame_updates
+        self.ablate_scalars, self.ablate_vectors = ablate_scalars, ablate_vectors
 
         if self.scalar_gate > 0:
             self.norm = nn.LayerNorm(self.scalar_output_dim)
@@ -182,6 +185,8 @@ class GCP(nn.Module):
     ]:
         if self.vector_input_dim:
             scalar_rep, vector_rep = s_maybe_v
+            scalar_rep = torch.zeros_like(scalar_rep) if self.ablate_scalars else scalar_rep
+            vector_rep = torch.zeros_like(vector_rep) if self.ablate_vectors else vector_rep
             v_pre = vector_rep.transpose(-1, -2)
 
             vector_hidden_rep = self.vector_down(v_pre)
@@ -189,6 +194,7 @@ class GCP(nn.Module):
             merged = torch.cat((scalar_rep, vector_norm), dim=-1)
         else:
             merged = s_maybe_v
+            merged = torch.zeros_like(merged) if self.ablate_scalars else merged
 
         scalar_rep = self.scalar_out(merged)
 
@@ -220,6 +226,7 @@ class GCP(nn.Module):
 
         if not self.vector_output_dim:
             # bypass updating vector features using complete local frames (e.g., in the case of a final layer)
+            scalar_rep = torch.zeros_like(scalar_rep) if self.ablate_scalars else scalar_rep
             return self.scalar_nonlinearity(scalar_rep)
 
         # GCP: update vector features using complete local frames
@@ -234,6 +241,8 @@ class GCP(nn.Module):
             )
 
         scalar_rep = self.scalar_nonlinearity(scalar_rep)
+        scalar_rep = torch.zeros_like(scalar_rep) if self.ablate_scalars else scalar_rep
+        vector_rep = torch.zeros_like(vector_rep) if self.ablate_vectors else vector_rep
         return ScalarVector(scalar_rep, vector_rep)
 
 
@@ -251,6 +260,8 @@ class GCP2(nn.Module):
             vector_residual: bool = False,
             vector_frame_residual: bool = False,
             ablate_frame_updates: bool = False,
+            ablate_scalars: bool = False,
+            ablate_vectors: bool = False,
             scalarization_vectorization_output_dim: int = 3,
             **kwargs
     ):
@@ -269,6 +280,7 @@ class GCP2(nn.Module):
         )
         self.vector_residual, self.vector_frame_residual = vector_residual, vector_frame_residual
         self.ablate_frame_updates = ablate_frame_updates
+        self.ablate_scalars, self.ablate_vectors = ablate_scalars, ablate_vectors
 
         if self.scalar_gate > 0:
             self.norm = nn.LayerNorm(self.scalar_output_dim)
@@ -396,6 +408,8 @@ class GCP2(nn.Module):
     ]:
         if self.vector_input_dim:
             scalar_rep, vector_rep = s_maybe_v
+            scalar_rep = torch.zeros_like(scalar_rep) if self.ablate_scalars else scalar_rep
+            vector_rep = torch.zeros_like(vector_rep) if self.ablate_vectors else vector_rep
             v_pre = vector_rep.transpose(-1, -2)
 
             vector_hidden_rep = self.vector_down(v_pre)
@@ -422,6 +436,7 @@ class GCP2(nn.Module):
 
         if not self.vector_output_dim:
             # bypass updating vector features using scalar information
+            scalar_rep = torch.zeros_like(scalar_rep) if self.ablate_scalars else scalar_rep
             return self.scalar_nonlinearity(scalar_rep)
         elif self.vector_output_dim and not self.vector_input_dim:
             # instantiate vector features that are learnable in proceeding GCP layers
@@ -442,6 +457,8 @@ class GCP2(nn.Module):
             )
 
         scalar_rep = self.scalar_nonlinearity(scalar_rep)
+        scalar_rep = torch.zeros_like(scalar_rep) if self.ablate_scalars else scalar_rep
+        vector_rep = torch.zeros_like(vector_rep) if self.ablate_vectors else vector_rep
         return ScalarVector(scalar_rep, vector_rep)
 
 
@@ -485,7 +502,9 @@ class GCPEmbedding(nn.Module):
             frame_gate=cfg.frame_gate,
             sigma_frame_gate=cfg.sigma_frame_gate,
             vector_frame_residual=cfg.vector_frame_residual,
-            ablate_frame_updates=cfg.ablate_frame_updates
+            ablate_frame_updates=cfg.ablate_frame_updates,
+            ablate_scalars=cfg.ablate_scalars,
+            ablate_vectors=cfg.ablate_vectors
         )
 
         self.node_embedding = cfg.selected_GCP(
@@ -497,7 +516,9 @@ class GCPEmbedding(nn.Module):
             frame_gate=cfg.frame_gate,
             sigma_frame_gate=cfg.sigma_frame_gate,
             vector_frame_residual=cfg.vector_frame_residual,
-            ablate_frame_updates=cfg.ablate_frame_updates
+            ablate_frame_updates=cfg.ablate_frame_updates,
+            ablate_scalars=cfg.ablate_scalars,
+            ablate_vectors=cfg.ablate_vectors
         )
 
     @typechecked
@@ -581,6 +602,7 @@ class GCPMessagePassing(nn.Module):
         self.edge_scalar_dim, self.edge_vector_dim = edge_dims
         self.conv_cfg = mp_cfg
         self.self_message = self.conv_cfg.self_message
+        self.use_residual_message_gcp = self.conv_cfg.use_residual_message_gcp
         self.reduce_function = reduce_function
 
         scalars_in_dim = 2 * self.scalar_input_dim + self.edge_scalar_dim
@@ -630,11 +652,18 @@ class GCPMessagePassing(nn.Module):
         v_col = v_col.reshape(v_col.shape[0], v_col.shape[1] // 3, 3)
 
         message = ScalarVector(s_row, v_row).concat((edge_rep, ScalarVector(s_col, v_col)))
-        message_residual = self.message_fusion[0](message, edge_index, frames, node_inputs=False, node_mask=node_mask)
-        for module in self.message_fusion[1:]:
-            # exchange messages while maintaining residual connection
-            new_message = module(message_residual, edge_index, frames, node_inputs=False, node_mask=node_mask)
-            message_residual = message_residual + new_message
+
+        if self.use_residual_message_gcp:
+            message_residual = self.message_fusion[0](message, edge_index, frames, node_inputs=False, node_mask=node_mask)
+            for module in self.message_fusion[1:]:
+                # ResGCP: exchange geometric messages while maintaining residual connection to original message
+                new_message = module(message_residual, edge_index, frames, node_inputs=False, node_mask=node_mask)
+                message_residual = message_residual + new_message
+        else:
+            message_residual = message
+            for module in self.message_fusion:
+                # ablate ResGCP: exchange geometric messages without maintaining residual connection to original message
+                message_residual = module(message_residual, edge_index, frames, node_inputs=False, node_mask=node_mask)
 
         return message_residual.flatten()
 
@@ -960,6 +989,46 @@ class GCPInteractions(nn.Module):
         )
 
         return node_rep, node_pos
+
+
+class GCPMLPDecoder(nn.Module):
+    def __init__(
+        self,
+        hidden_dim: int,
+        vocab_size: int = 20,
+        num_layers: int = 1,
+        residual_updates: bool = False
+    ):
+        super().__init__()
+        self.residual_updates = residual_updates
+
+        readout_layers = [
+            nn.Linear(hidden_dim, hidden_dim) for _ in range(num_layers - 1)
+        ] + [nn.Linear(hidden_dim, vocab_size)]
+        self.readout = nn.ModuleList(readout_layers) if residual_updates else nn.Sequential(*readout_layers)
+
+    @typechecked
+    def residual_forward(
+        self,
+        h: TensorType["batch_num_nodes", "h_hidden_dim"]
+    ) -> TensorType["batch_num_nodes", "vocab_size"]:
+        h_readout = h
+        for layer in self.readout[:-1]:
+            h_readout = h_readout + layer(h_readout)
+        logits = self.readout[-1](h_readout)
+        return logits
+
+    @typechecked
+    def forward(
+        self,
+        h: TensorType["batch_num_nodes", "h_hidden_dim"]
+    ) -> Tuple[
+        TensorType["batch_num_nodes", "vocab_size"],
+        TensorType["batch_num_nodes", "vocab_size"]
+    ]:
+        logits = self.residual_forward(h) if self.residual_updates else self.readout(h)
+        log_probs = F.log_softmax(logits, dim=-1)
+        return logits, log_probs
 
 
 if __name__ == "__main__":

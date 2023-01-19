@@ -152,7 +152,11 @@ class GCPLayerNorm(nn.Module):
         elif isinstance(x, ScalarVector) and (x.scalar.shape[0] == 0 or x.vector.shape[0] == 0):
             return x
         elif not self.vector_dims:
-            return self.scalar_norm(x)
+            return (
+                self.scalar_norm(x[0])
+                if isinstance(x, ScalarVector)
+                else self.scalar_norm(x)
+            )
         s, v = x
         return ScalarVector(self.scalar_norm(s), self.norm_vector(v, eps=self.eps))
 

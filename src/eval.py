@@ -97,7 +97,10 @@ def evaluate(cfg: DictConfig) -> Tuple[dict, dict]:
         checkpoint_path=cfg.ckpt_path,
         strict=False,
         layer_class=hydra.utils.instantiate(cfg.model.layer_class),
-        model_cfg=cfg.model.model_cfg
+        model_cfg=hydra.utils.instantiate(cfg.model.model_cfg),
+        module_cfg=hydra.utils.instantiate(cfg.model.module_cfg),
+        layer_cfg=hydra.utils.instantiate(cfg.model.layer_cfg),
+        path_cfg=hydra.utils.instantiate(cfg.paths)
     )
 
     log.info("Starting testing!")

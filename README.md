@@ -41,6 +41,7 @@ mkdir -p data
 mkdir -p data/ATOM3D
 mkdir -p data/ATOM3D/LBA
 mkdir -p data/ATOM3D/PSR
+mkdir -p data/CATH/CPD
 
 # fetch, extract, and clean-up preprocessed data
 cd data/
@@ -50,7 +51,7 @@ rm NMS.tar.gz
 cd ../
 ```
 
-**Note**: The ATOM3D datasets we use (i.e., the LBA and PSR datasets) will automatically be downloaded during execution of `src/train.py` or `src/eval.py` if they have not already been downloaded.
+**Note**: The ATOM3D datasets (i.e., the LBA and PSR datasets) as well as the CATH dataset we use will automatically be downloaded during execution of `src/train.py` or `src/eval.py` if they have not already been downloaded.
 
 ## How to train
 
@@ -86,6 +87,12 @@ Train a model for one of the Newtonian many-body system (**NMS**) tasks
 
 ```bash
 python3 src/train.py experiment=gcpnet_nms_{small/small_20body/static/dynamic}.yaml
+```
+
+Train a model for the computational protein design (**CPD**) task
+
+```bash
+python3 src/train.py experiment=gcpnet_cpd.yaml
 ```
 
 **Note**: You can override any parameter from command line like this
@@ -210,6 +217,29 @@ NMS Dynamic Model
 └───────────────────────────┴───────────────────────────┘
 ```
 
+Reproduce our results for the CPD task
+
+```bash
+cpd_model_ckpt_path="checkpoints/CPD/model_epoch_735_shortppl_8_22_singlechainppl_8_60_allppl_6_06_shortrecov_33_33_singlechainrecov_32_86_allrecov_40_32.ckpt"
+
+python3 src/eval.py datamodule=cath_cpd model=gcpnet_cpd logger=csv trainer.accelerator=gpu trainer.devices=1 ckpt_path="$cpd_model_ckpt_path"
+```
+
+```bash
+CPD Model
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃         Test metric          ┃         DataLoader 0         ┃         DataLoader 1         ┃         DataLoader 2         ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│          test/loss           │      1.8619296550750732      │      1.8619296550750732      │      1.8619296550750732      │
+│     test/perplexity/all      │      6.061273574829102       │      6.061273574829102       │      6.061273574829102       │
+│    test/perplexity/short     │      8.223138809204102       │      8.223138809204102       │      8.223138809204102       │
+│ test/perplexity/single_chain │      8.603355407714844       │      8.603355407714844       │      8.603355407714844       │
+│      test/recovery/all       │     0.40316206216812134      │     0.40316206216812134      │     0.40316206216812134      │
+│     test/recovery/short      │      0.3333333432674408      │      0.3333333432674408      │      0.3333333432674408      │
+│  test/recovery/single_chain  │      0.3285714387893677      │      0.3285714387893677      │      0.3285714387893677      │
+└──────────────────────────────┴──────────────────────────────┴──────────────────────────────┴──────────────────────────────┘
+```
+
 ## Acknowledgements
 
 GCPNet builds upon the source code and data from the following projects:
@@ -220,3 +250,17 @@ GCPNet builds upon the source code and data from the following projects:
 * [lightning-hydra-template](https://github.com/ashleve/lightning-hydra-template)
 
 We thank all their contributors and maintainers!
+
+
+## Citing this work
+
+If you use the code or data associated with this package or otherwise find this work useful, please cite:
+
+```bibtex
+@article{morehead2022geometry,
+  title={Geometry-Complete Perceptron Networks for 3D Molecular Graphs},
+  author={Morehead, Alex and Cheng, Jianlin},
+  journal={arXiv preprint arXiv:2211.02504},
+  year={2022}
+}
+```

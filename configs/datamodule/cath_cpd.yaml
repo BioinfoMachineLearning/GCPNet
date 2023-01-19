@@ -1,0 +1,16 @@
+_target_: src.datamodules.cath_datamodule.CATHDataModule
+
+defaults:
+  - features_cfg: features_cpd.yaml
+
+data_dir: ${paths.data_dir}CATH
+file_name: chain_set.jsonl
+splits_file_name: chain_set_splits.json
+short_file_name: test_split_L100.json
+single_chain_file_name: test_split_sc.json
+max_neighbors: 32
+max_units: 0
+unit: edge
+batch_size: 8
+num_workers: 4
+pin_memory: true

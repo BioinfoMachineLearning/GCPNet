@@ -2,6 +2,7 @@
 # Following code curated for GCPNet (https://github.com/BioinfoMachineLearning/GCPNet):
 # -------------------------------------------------------------------------------------------------------------------------------------
 
+from src.models.gcpnet_cpd_module import GCPNetCPDLitModule
 from src.models.gcpnet_nms_module import GCPNetNMSLitModule
 from src.models.gcpnet_psr_module import GCPNetPSRLitModule
 from src.models.gcpnet_lba_module import GCPNetLBALitModule
@@ -63,11 +64,15 @@ n_nodes = 300
 n_edges = 10000
 batch_size = 8
 
+cpd_node_input_dims = (6, 3)
+cpd_edge_input_dims = (32, 1)
+
 (h, chi) = randn(n_nodes, node_dim, device=device)
 (e, xi) = randn(n_edges, edge_dim, device=device)
 edge_index = torch.randint(0, n_nodes, (2, n_edges), device=device)
 x = torch.randn(n_nodes, 3, device=device) + torch.randint(low=1, high=100, size=(1,), device=device)
 batch_idx = torch.randint(0, batch_size, (n_nodes,), device=device)
+seq = torch.randint(0, 20, (n_nodes,), device=device)
 
 # hyperparameters
 lba_cfg_filepath = os.path.join("configs", "model", "module_cfg", "gcp_module_lba.yaml")
@@ -83,7 +88,7 @@ nms_model_cfg = hydra.utils.instantiate(OmegaConf.load(nms_model_cfg_filepath))
 layer_cfg = hydra.utils.instantiate(OmegaConf.load(lba_interaction_layer_cfg_filepath))
 mp_cfg = hydra.utils.instantiate(OmegaConf.load(lba_mp_cfg_filepath))
 
-# test with the maximum number of layers used for any particular task (e.g., 9 encoder layers and 8 message layers)
+# test with the maximum number of layers used for any particular task (e.g., 9 encoder layers and 8 message layers for CPD)
 model_cfg["num_encoder_layers"] = 9
 model_cfg["num_decoder_layers"] = 3
 mp_cfg["num_message_layers"] = 8
@@ -92,6 +97,10 @@ mp_cfg["num_message_layers"] = 8
 norm_x_diff = True
 cfg["norm_x_diff"] = norm_x_diff
 nms_cfg["norm_x_diff"] = norm_x_diff
+
+# test with or without residual connections in the CPD decoder
+decoder_residual_updates = True
+model_cfg["decoder_residual_updates"] = decoder_residual_updates
 
 # work around not using Hydra for nested config instantiations
 layer_cfg["mp_cfg"] = mp_cfg
@@ -530,6 +539,106 @@ nms_model_cfg["xi_input_dim"] = edge_input_dim[1]
 #         def model_fn(b): return model.forward(b)
 #         test_equivariance(model_fn, ScalarVector(h, chi), ScalarVector(
 #             e, xi), x, edge_index, test_translation_invariance=True)
+
+### GCPComputationalProteinDesignEquivarianceTest ###
+
+# class GCPComputationalProteinDesignEquivarianceTest(unittest.TestCase):
+
+#     def test_cpd_gcp_model(self):
+#         custom_cfg = copy.copy(cfg)
+#         custom_cfg["selected_GCP"] = {"_target_": "src.models.components.gcpnet.GCP", "_partial_": True}
+#         custom_cfg["selected_GCP"] = hydra.utils.instantiate(custom_cfg["selected_GCP"])
+#         custom_cfg["vector_gate"] = False
+#         custom_cfg["frame_gate"] = False
+#         custom_cfg["sigma_frame_gate"] = False
+#         model_cfg["output_dim"] = 20
+#         model = GCPNetCPDLitModule(
+#             layer_class=GCPInteractions,
+#             optimizer=partial(torch.optim.Adam, lr=1e-4, weight_decay=0),
+#             scheduler=None,
+#             node_input_dims=cpd_node_input_dims,
+#             edge_input_dims=cpd_edge_input_dims,
+#             model_cfg=model_cfg,
+#             module_cfg=custom_cfg,
+#             layer_cfg=layer_cfg,
+#             dropout=0.1
+#         ).to(device).eval()
+#         def model_fn(b): return model.forward(b)
+#         test_equivariance(model_fn, ScalarVector(h, chi), ScalarVector(
+#             e, xi), x, edge_index, test_translation_invariance=True,
+#             autoregressive_model=True)
+
+#     def test_cpd_gcp_model_vector_gate(self):
+#         custom_cfg = copy.copy(cfg)
+#         custom_cfg["selected_GCP"] = {"_target_": "src.models.components.gcpnet.GCP", "_partial_": True}
+#         custom_cfg["selected_GCP"] = hydra.utils.instantiate(custom_cfg["selected_GCP"])
+#         custom_cfg["vector_gate"] = True
+#         custom_cfg["frame_gate"] = False
+#         custom_cfg["sigma_frame_gate"] = False
+#         model_cfg["output_dim"] = 20
+#         model = GCPNetCPDLitModule(
+#             layer_class=GCPInteractions,
+#             optimizer=partial(torch.optim.Adam, lr=1e-4, weight_decay=0),
+#             scheduler=None,
+#             node_input_dims=cpd_node_input_dims,
+#             edge_input_dims=cpd_edge_input_dims,
+#             model_cfg=model_cfg,
+#             module_cfg=custom_cfg,
+#             layer_cfg=layer_cfg,
+#             dropout=0.1
+#         ).to(device).eval()
+#         def model_fn(b): return model.forward(b)
+#         test_equivariance(model_fn, ScalarVector(h, chi), ScalarVector(
+#             e, xi), x, edge_index, test_translation_invariance=True,
+#             autoregressive_model=True)
+
+#     def test_cpd_gcp_model_frame_gate(self):
+#         custom_cfg = copy.copy(cfg)
+#         custom_cfg["selected_GCP"] = {"_target_": "src.models.components.gcpnet.GCP", "_partial_": True}
+#         custom_cfg["selected_GCP"] = hydra.utils.instantiate(custom_cfg["selected_GCP"])
+#         custom_cfg["vector_gate"] = False
+#         custom_cfg["frame_gate"] = True
+#         custom_cfg["sigma_frame_gate"] = False
+#         model_cfg["output_dim"] = 20
+#         model = GCPNetCPDLitModule(
+#             layer_class=GCPInteractions,
+#             optimizer=partial(torch.optim.Adam, lr=1e-4, weight_decay=0),
+#             scheduler=None,
+#             node_input_dims=cpd_node_input_dims,
+#             edge_input_dims=cpd_edge_input_dims,
+#             model_cfg=model_cfg,
+#             module_cfg=custom_cfg,
+#             layer_cfg=layer_cfg,
+#             dropout=0.1
+#         ).to(device).eval()
+#         def model_fn(b): return model.forward(b)
+#         test_equivariance(model_fn, ScalarVector(h, chi), ScalarVector(
+#             e, xi), x, edge_index, test_translation_invariance=True,
+#             autoregressive_model=True)
+
+#     def test_cpd_gcp_model_sigma_frame_gate(self):
+#         custom_cfg = copy.copy(cfg)
+#         custom_cfg["selected_GCP"] = {"_target_": "src.models.components.gcpnet.GCP", "_partial_": True}
+#         custom_cfg["selected_GCP"] = hydra.utils.instantiate(custom_cfg["selected_GCP"])
+#         custom_cfg["vector_gate"] = False
+#         custom_cfg["frame_gate"] = False
+#         custom_cfg["sigma_frame_gate"] = True
+#         model_cfg["output_dim"] = 20
+#         model = GCPNetCPDLitModule(
+#             layer_class=GCPInteractions,
+#             optimizer=partial(torch.optim.Adam, lr=1e-4, weight_decay=0),
+#             scheduler=None,
+#             node_input_dims=cpd_node_input_dims,
+#             edge_input_dims=cpd_edge_input_dims,
+#             model_cfg=model_cfg,
+#             module_cfg=custom_cfg,
+#             layer_cfg=layer_cfg,
+#             dropout=0.1
+#         ).to(device).eval()
+#         def model_fn(b): return model.forward(b)
+#         test_equivariance(model_fn, ScalarVector(h, chi), ScalarVector(
+#             e, xi), x, edge_index, test_translation_invariance=True,
+#             autoregressive_model=True)
 
 ### GCPNewtonianManyBodySystemEquivarianceTest ###
 
@@ -1134,6 +1243,130 @@ nms_model_cfg["xi_input_dim"] = edge_input_dim[1]
 #         test_equivariance(model_fn, ScalarVector(h, chi), ScalarVector(
 #             e, xi), x, edge_index, test_translation_invariance=True)
 
+### GCP2ComputationalProteinDesignEquivarianceTest ###
+
+# class GCP2ComputationalProteinDesignEquivarianceTest(unittest.TestCase):
+
+#     def test_cpd_gcp2_model_baseline(self):
+#         custom_cfg = copy.copy(cfg)
+#         custom_cfg["selected_GCP"] = {"_target_": "src.models.components.gcpnet.GCP2", "_partial_": True}
+#         custom_cfg["selected_GCP"] = hydra.utils.instantiate(custom_cfg["selected_GCP"])
+#         custom_cfg["ablate_frame_updates"] = True
+#         custom_cfg["vector_gate"] = False
+#         custom_cfg["frame_gate"] = False
+#         model_cfg["output_dim"] = 20
+#         model = GCPNetCPDLitModule(
+#             layer_class=GCPInteractions,
+#             optimizer=partial(torch.optim.Adam, lr=1e-4, weight_decay=0),
+#             scheduler=None,
+#             node_input_dims=cpd_node_input_dims,
+#             edge_input_dims=cpd_edge_input_dims,
+#             model_cfg=model_cfg,
+#             module_cfg=custom_cfg,
+#             layer_cfg=layer_cfg,
+#             dropout=0.1
+#         ).to(device).eval()
+#         def model_fn(b): return model.forward(b)
+#         test_equivariance(model_fn, ScalarVector(h, chi), ScalarVector(
+#             e, xi), x, edge_index, test_translation_invariance=True,
+#             autoregressive_model=True)
+
+#     def test_cpd_gcp2_model_baseline_vector_gate(self):
+#         custom_cfg = copy.copy(cfg)
+#         custom_cfg["selected_GCP"] = {"_target_": "src.models.components.gcpnet.GCP2", "_partial_": True}
+#         custom_cfg["selected_GCP"] = hydra.utils.instantiate(custom_cfg["selected_GCP"])
+#         custom_cfg["ablate_frame_updates"] = True
+#         custom_cfg["vector_gate"] = True
+#         custom_cfg["frame_gate"] = False
+#         model_cfg["output_dim"] = 20
+#         model = GCPNetCPDLitModule(
+#             layer_class=GCPInteractions,
+#             optimizer=partial(torch.optim.Adam, lr=1e-4, weight_decay=0),
+#             scheduler=None,
+#             node_input_dims=cpd_node_input_dims,
+#             edge_input_dims=cpd_edge_input_dims,
+#             model_cfg=model_cfg,
+#             module_cfg=custom_cfg,
+#             layer_cfg=layer_cfg,
+#             dropout=0.1
+#         ).to(device).eval()
+#         def model_fn(b): return model.forward(b)
+#         test_equivariance(model_fn, ScalarVector(h, chi), ScalarVector(
+#             e, xi), x, edge_index, test_translation_invariance=True,
+#             autoregressive_model=True)
+
+#     def test_cpd_gcp2_model(self):
+#         custom_cfg = copy.copy(cfg)
+#         custom_cfg["selected_GCP"] = {"_target_": "src.models.components.gcpnet.GCP2", "_partial_": True}
+#         custom_cfg["selected_GCP"] = hydra.utils.instantiate(custom_cfg["selected_GCP"])
+#         custom_cfg["ablate_frame_updates"] = False
+#         custom_cfg["vector_gate"] = False
+#         custom_cfg["frame_gate"] = False
+#         model_cfg["output_dim"] = 20
+#         model = GCPNetCPDLitModule(
+#             layer_class=GCPInteractions,
+#             optimizer=partial(torch.optim.Adam, lr=1e-4, weight_decay=0),
+#             scheduler=None,
+#             node_input_dims=cpd_node_input_dims,
+#             edge_input_dims=cpd_edge_input_dims,
+#             model_cfg=model_cfg,
+#             module_cfg=custom_cfg,
+#             layer_cfg=layer_cfg,
+#             dropout=0.1
+#         ).to(device).eval()
+#         def model_fn(b): return model.forward(b)
+#         test_equivariance(model_fn, ScalarVector(h, chi), ScalarVector(
+#             e, xi), x, edge_index, test_translation_invariance=True,
+#             autoregressive_model=True)
+
+#     def test_cpd_gcp2_model_vector_gate(self):
+#         custom_cfg = copy.copy(cfg)
+#         custom_cfg["selected_GCP"] = {"_target_": "src.models.components.gcpnet.GCP2", "_partial_": True}
+#         custom_cfg["selected_GCP"] = hydra.utils.instantiate(custom_cfg["selected_GCP"])
+#         custom_cfg["ablate_frame_updates"] = False
+#         custom_cfg["vector_gate"] = True
+#         custom_cfg["frame_gate"] = False
+#         model_cfg["output_dim"] = 20
+#         model = GCPNetCPDLitModule(
+#             layer_class=GCPInteractions,
+#             optimizer=partial(torch.optim.Adam, lr=1e-4, weight_decay=0),
+#             scheduler=None,
+#             node_input_dims=cpd_node_input_dims,
+#             edge_input_dims=cpd_edge_input_dims,
+#             model_cfg=model_cfg,
+#             module_cfg=custom_cfg,
+#             layer_cfg=layer_cfg,
+#             dropout=0.1
+#         ).to(device).eval()
+#         def model_fn(b): return model.forward(b)
+#         test_equivariance(model_fn, ScalarVector(h, chi), ScalarVector(
+#             e, xi), x, edge_index, test_translation_invariance=True,
+#             autoregressive_model=True)
+
+#     def test_cpd_gcp2_model_frame_gate(self):
+#         custom_cfg = copy.copy(cfg)
+#         custom_cfg["selected_GCP"] = {"_target_": "src.models.components.gcpnet.GCP2", "_partial_": True}
+#         custom_cfg["selected_GCP"] = hydra.utils.instantiate(custom_cfg["selected_GCP"])
+#         custom_cfg["ablate_frame_updates"] = False
+#         custom_cfg["vector_gate"] = False
+#         custom_cfg["frame_gate"] = True
+#         model_cfg["output_dim"] = 20
+#         model = GCPNetCPDLitModule(
+#             layer_class=GCPInteractions,
+#             optimizer=partial(torch.optim.Adam, lr=1e-4, weight_decay=0),
+#             scheduler=None,
+#             node_input_dims=cpd_node_input_dims,
+#             edge_input_dims=cpd_edge_input_dims,
+#             model_cfg=model_cfg,
+#             module_cfg=custom_cfg,
+#             layer_cfg=layer_cfg,
+#             dropout=0.1
+#         ).to(device).eval()
+#         def model_fn(b): return model.forward(b)
+#         test_equivariance(model_fn, ScalarVector(h, chi), ScalarVector(
+#             e, xi), x, edge_index, test_translation_invariance=True,
+#             autoregressive_model=True)
+
 ### GCP2NewtonianManyBodySystemEquivarianceTest ###
 
 # class GCP2NewtonianManyBodySystemEquivarianceTest(unittest.TestCase):
@@ -1235,6 +1468,25 @@ nms_model_cfg["xi_input_dim"] = edge_input_dim[1]
 
 
 @typechecked
+def construct_autoregressive_batch_from_random_data_list(batch_size: int, **kwargs):
+    data_list = []
+    for _ in range(batch_size):
+        effective_n_nodes = n_nodes // batch_size
+        effective_n_edges = n_edges // batch_size
+        x = torch.randn(effective_n_nodes, 3, device=device) + torch.randint(low=1, high=100, size=(1,), device=device)
+        seq = torch.randint(0, 20, (effective_n_nodes,), dtype=torch.int64, device=device)
+        name = ["test_cpd_target.pdb"]
+        a, chi = randn(effective_n_nodes, cpd_node_input_dims, device=device)
+        b, xi = randn(effective_n_edges, cpd_edge_input_dims, device=device)
+        edge_index = torch.randint(0, effective_n_nodes, (2, effective_n_edges), device=device)
+        mask = torch.randint(0, 2, (effective_n_nodes,), device=device).bool()
+        data_list.append(Data(x=x.squeeze(), seq=seq, name=name, h=a, chi=chi,
+                         e=b, xi=xi, edge_index=edge_index, mask=mask))
+    batch = Batch.from_data_list(data_list)
+    return batch
+
+
+@typechecked
 def construct_batch_from_random_data_list(batch_size: int, construct_node_types: bool = True, **kwargs):
     data_list = []
     for _ in range(batch_size):
@@ -1259,16 +1511,22 @@ def construct_batch_from_random_data_list(batch_size: int, construct_node_types:
 def test_rotation_and_permutation_equivariance_and_translation_invariance(
     model: Callable,
     random_Q: TensorType[3, 3],
-    random_g: TensorType[3, 1]
+    random_g: TensorType[3, 1],
+    autoregressive_model: bool = False
 ):
     # package the input features as a batch
-    batch_construction_fn = partial(construct_batch_from_random_data_list)
+    batch_construction_fn = (
+        partial(construct_autoregressive_batch_from_random_data_list)
+        if autoregressive_model
+        else partial(construct_batch_from_random_data_list)
+    )
     batch = batch_construction_fn(batch_size)
     batch_trans = copy.deepcopy(batch)
     batch_perm = copy.deepcopy(batch)
 
     # establish baseline model outputs for later comparison
     a_s, chi_V, b_s, xi_V, x_V, edge_index_E = batch.h, batch.chi, batch.e, batch.xi, batch.x, batch.edge_index
+    seq_s, mask_s = (batch.seq, batch.mask) if autoregressive_model else (None, None)
     batch, _ = model(batch)
     out_h, out_chi, out_e, out_xi = batch.h, batch.chi, batch.e, batch.xi
 
@@ -1292,11 +1550,17 @@ def test_rotation_and_permutation_equivariance_and_translation_invariance(
     # test for permutation equivariance #
     a_perm, chi_perm, b_perm, xi_perm, x_perm, edge_index_perm = a_s.clone(
     ), chi_V.clone(), b_s.clone(), xi_V.clone(), x_V.clone(), edge_index_E.clone()
+    seq_s_perm, mask_s_perm = (seq_s.clone(), mask_s.clone()) if autoregressive_model else (None, None)
     node_ids_to_swap = torch.randperm(a_perm.shape[0])[:2]
     a_perm[node_ids_to_swap[0]], x_perm[node_ids_to_swap[0]], chi_perm[node_ids_to_swap[0]
                                                                        ] = a_perm[node_ids_to_swap[1]], x_perm[node_ids_to_swap[1]], chi_perm[node_ids_to_swap[1]]
     a_perm[node_ids_to_swap[1]], x_perm[node_ids_to_swap[1]], chi_perm[node_ids_to_swap[1]
                                                                        ] = a_s[node_ids_to_swap[0]], x_V[node_ids_to_swap[0]], chi_V[node_ids_to_swap[0]]
+    if autoregressive_model:
+        seq_s_perm[node_ids_to_swap[0]], mask_s_perm[node_ids_to_swap[0]
+                                                     ] = seq_s_perm[node_ids_to_swap[1]], mask_s_perm[node_ids_to_swap[1]]
+        seq_s_perm[node_ids_to_swap[1]], mask_s_perm[node_ids_to_swap[1]
+                                                     ] = seq_s[node_ids_to_swap[0]], mask_s[node_ids_to_swap[0]]
 
     # note: not all nodes may have the same number of outgoing edges,
     # so we can only swap source and destination node indices and edge features for up to `num_edges_to_swap` edges
@@ -1327,6 +1591,8 @@ def test_rotation_and_permutation_equivariance_and_translation_invariance(
     batch_perm.xi = xi_perm
     batch_perm.x = x_perm
     batch_perm.edge_index = edge_index_perm
+    batch_perm.seq = seq_s_perm if autoregressive_model else None
+    batch_perm.mask = mask_s_perm if autoregressive_model else None
     batch_perm, _ = model(batch_perm)
     out_h_prime_prime, out_chi_prime_prime, _, _ = batch_perm.h, batch_perm.chi, batch_perm.e, batch_perm.xi
 
@@ -1373,16 +1639,22 @@ def test_rotation_and_permutation_equivariance_and_translation_invariance(
 def test_rotation_and_permutation_equivariance_and_translation_equivariance(
     model: Callable,
     random_Q: TensorType[3, 3],
-    random_g: TensorType[3, 1]
+    random_g: TensorType[3, 1],
+    autoregressive_model: bool = False
 ):
     # package the input features as a batch
-    batch_construction_fn = partial(construct_batch_from_random_data_list, construct_node_types=False)
+    batch_construction_fn = (
+        partial(construct_autoregressive_batch_from_random_data_list)
+        if autoregressive_model
+        else partial(construct_batch_from_random_data_list, construct_node_types=False)
+    )
     batch = batch_construction_fn(batch_size)
     batch_trans = copy.deepcopy(batch)
     batch_perm = copy.deepcopy(batch)
 
     # establish baseline model outputs for later comparison
     a_s, chi_V, b_s, xi_V, x_V, edge_index_E = batch.h, batch.chi, batch.e, batch.xi, batch.x, batch.edge_index
+    seq_s, mask_s = (batch.seq, batch.mask) if autoregressive_model else (None, None)
     batch, _ = model(batch)
     out_h, out_chi, out_e, out_xi, out_x = batch.h, batch.chi, batch.e, batch.xi, batch.x
 
@@ -1408,11 +1680,17 @@ def test_rotation_and_permutation_equivariance_and_translation_equivariance(
     # test for permutation equivariance #
     a_perm, chi_perm, b_perm, xi_perm, x_perm, edge_index_perm = a_s.clone(
     ), chi_V.clone(), b_s.clone(), xi_V.clone(), x_V.clone(), edge_index_E.clone()
+    seq_s_perm, mask_s_perm = (seq_s.clone(), mask_s.clone()) if autoregressive_model else (None, None)
     node_ids_to_swap = torch.randperm(a_perm.shape[0])[:2]
     a_perm[node_ids_to_swap[0]], x_perm[node_ids_to_swap[0]], chi_perm[node_ids_to_swap[0]
                                                                        ] = a_perm[node_ids_to_swap[1]], x_perm[node_ids_to_swap[1]], chi_perm[node_ids_to_swap[1]]
     a_perm[node_ids_to_swap[1]], x_perm[node_ids_to_swap[1]], chi_perm[node_ids_to_swap[1]
                                                                        ] = a_s[node_ids_to_swap[0]], x_V[node_ids_to_swap[0]], chi_V[node_ids_to_swap[0]]
+    if autoregressive_model:
+        seq_s_perm[node_ids_to_swap[0]], mask_s_perm[node_ids_to_swap[0]
+                                                     ] = seq_s_perm[node_ids_to_swap[1]], mask_s_perm[node_ids_to_swap[1]]
+        seq_s_perm[node_ids_to_swap[1]], mask_s_perm[node_ids_to_swap[1]
+                                                     ] = seq_s[node_ids_to_swap[0]], mask_s[node_ids_to_swap[0]]
 
     # note: not all nodes may have the same number of outgoing edges,
     # so we can only swap source and destination node indices and edge features for up to `num_edges_to_swap` edges
@@ -1443,6 +1721,8 @@ def test_rotation_and_permutation_equivariance_and_translation_equivariance(
     batch_perm.xi = xi_perm
     batch_perm.x = x_perm
     batch_perm.edge_index = edge_index_perm
+    batch_perm.seq = seq_s_perm if autoregressive_model else None
+    batch_perm.mask = mask_s_perm if autoregressive_model else None
     batch_perm, _ = model(batch_perm)
     out_h_prime_prime, out_chi_prime_prime, _, _ = batch_perm.h, batch_perm.chi, batch_perm.e, batch_perm.xi
 
@@ -1611,7 +1891,8 @@ def test_equivariance(
     node_inputs: bool = True,
     test_translation_invariance: bool = False,
     test_translation_equivariance: bool = False,
-    test_message_passing: bool = False
+    test_message_passing: bool = False,
+    autoregressive_model: bool = False
 ):
     with torch.no_grad():
         frames = localize(x, edge_index)
@@ -1627,7 +1908,8 @@ def test_equivariance(
             test_fn(
                 model,
                 random_Q,
-                random_g
+                random_g,
+                autoregressive_model=autoregressive_model
             )
         else:
             test_rotation_and_permutation_equivariance(

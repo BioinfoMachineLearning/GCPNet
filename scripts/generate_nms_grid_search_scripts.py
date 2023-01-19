@@ -27,7 +27,7 @@ EXPERIMENT = f"gcpnet_{TASK}_grid_search"  # TODO: Ensure Is Correct Before Each
 TEMPLATE_RUN_NAME = f"{TIMESTAMP}_{MODEL_NAME}"
 TIMEOUT_PERIOD = 1438 if HIGH_MEMORY else 118
 FINAL_TEMPLATE_LINE = f"timeout {TIMEOUT_PERIOD}m jsrun -E LD_PRELOAD=/opt/ibm/spectrum_mpi/lib/pami_490/libpami.so -r1 -g6 -a6 -c42 -bpacked:7 python3 src/train.py experiment={EXPERIMENT}"
-NUM_RUNS_PER_EXPERIMENT = {"lba": 3, "psr": 1,
+NUM_RUNS_PER_EXPERIMENT = {"lba": 3, "psr": 1, "cpd": 1,
                            "nms_small": 1, "nms_small_20body": 1, "nms_static": 1, "nms_dynamic": 1}
 
 # establish paths
