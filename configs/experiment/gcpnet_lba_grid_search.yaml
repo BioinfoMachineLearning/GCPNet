@@ -94,6 +94,7 @@ model:
       message_residual: 0
       message_ff_multiplier: 1
       self_message: true
+      use_residual_message_gcp: true
 
     pre_norm: false
     num_feedforward_layers: 2
