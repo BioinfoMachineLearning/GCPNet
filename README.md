@@ -41,7 +41,7 @@ mkdir -p data
 mkdir -p data/ATOM3D
 mkdir -p data/ATOM3D/LBA
 mkdir -p data/ATOM3D/PSR
-mkdir -p data/CATH/CPD
+mkdir -p data/CATH
 
 # fetch, extract, and clean-up preprocessed data
 cd data/
