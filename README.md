@@ -9,6 +9,8 @@
 <!-- [![Conference](http://img.shields.io/badge/AnyConference-year-4b44ce.svg)](https://papers.nips.cc/paper/2020) -->
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.7293186.svg)](https://doi.org/10.5281/zenodo.7293186)
 
+**Update**: Also consider checking out our new diffusion generative model, GCDM, that uses GCPNet to improve equivariant diffusion models for 3D molecule generation in multiple ways. The GCDM [GitHub](https://github.com/BioinfoMachineLearning/bio-diffusion) and [paper](https://arxiv.org/abs/2302.04313).
+
 ![GCP_Architecture.png](./img/GCPNet.png)
 
 </div>
