@@ -104,16 +104,16 @@ Train a model for one of the Newtonian many-body system (**NMS**) tasks
 python3 src/train.py experiment=gcpnet_nms_{small/small_20body/static/dynamic}.yaml
 ```
 
-Train a model for the computational protein design (**CPD**) task
-
-```bash
-python3 src/train.py experiment=gcpnet_cpd.yaml
-```
-
 Train a model for the rectus/sinister (**RS**) classification task
 
 ```bash
 python3 src/train.py experiment=gcpnet_rs.yaml
+```
+
+Train a model for the computational protein design (**CPD**) task
+
+```bash
+python3 src/train.py experiment=gcpnet_cpd.yaml
 ```
 
 **Note**: You can override any parameter from command line like this
