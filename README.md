@@ -110,7 +110,7 @@ Train a model for the computational protein design (**CPD**) task
 python3 src/train.py experiment=gcpnet_cpd.yaml
 ```
 
-Train a model for the rectus-sinister (**RS**) classification task
+Train a model for the rectus/sinister (**RS**) classification task
 
 ```bash
 python3 src/train.py experiment=gcpnet_rs.yaml

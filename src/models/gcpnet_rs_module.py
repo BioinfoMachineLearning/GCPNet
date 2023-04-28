@@ -29,7 +29,7 @@ log = utils.get_pylogger(__name__)
 
 
 class GCPNetRSLitModule(LightningModule):
-    """LightningModule for molecular rectus/sinister (R/S) prediction using GCPNet.
+    """LightningModule for molecular rectus/sinister (R/S) classification using GCPNet.
 
     This LightningModule organizes the PyTorch code into 6 sections:
         - Computations (init)
