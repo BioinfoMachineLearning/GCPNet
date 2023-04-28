@@ -1,0 +1,21 @@
+_target_: src.datamodules.rs_datamodule.RSDataModule
+
+train_data_filepath: ${paths.data_dir}RS/final_data_splits/train_RS_classification_enantiomers_MOL_326865_55084_27542.pkl
+val_data_filepath: ${paths.data_dir}RS/final_data_splits/validation_RS_classification_enantiomers_MOL_70099_11748_5874.pkl
+test_data_filepath: ${paths.data_dir}RS/final_data_splits/test_RS_classification_enantiomers_MOL_69719_11680_5840.pkl
+seed: ${..seed}
+iteration_mode: stereoisomers
+sample_1_conformer: false
+select_N_enantiomers: null
+mask_coordinates: false
+stereo_mask: true
+grouping: "none"
+stratified: false
+without_replacement: true
+num_pos: 0
+num_neg: 1
+D_max: 4.5
+num_rbf: 16
+batch_size: 64
+num_workers: 8
+pin_memory: false

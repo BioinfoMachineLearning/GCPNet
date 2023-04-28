@@ -53,6 +53,7 @@ mkdir -p data/ATOM3D
 mkdir -p data/ATOM3D/LBA
 mkdir -p data/ATOM3D/PSR
 mkdir -p data/CATH
+mkdir -p data/RS/final_data_splits
 
 # fetch, extract, and clean-up preprocessed data
 cd data/
@@ -62,7 +63,10 @@ rm NMS.tar.gz
 cd ../
 ```
 
-**Note**: The ATOM3D datasets (i.e., the LBA and PSR datasets) as well as the CATH dataset we use will automatically be downloaded during execution of `src/train.py` or `src/eval.py` if they have not already been downloaded.
+Download data for the RS task by
+navigating to https://figshare.com/s/e23be65a884ce7fc8543 and downloading the three files `train_RS_classification_enantiomers_MOL_326865_55084_27542.pkl`, `validation_RS_classification_enantiomers_MOL_70099_11748_5874.pkl`, and `test_RS_classification_enantiomers_MOL_69719_11680_5840.pkl`. Once downloaded, please store them in `data/RS/final_data_splits`.
+
+**Note**: The ATOM3D datasets (i.e., the LBA and PSR datasets) as well as the CATH dataset we use will automatically be downloaded during execution of `src/train.py` or `src/eval.py` if they have not already been downloaded. However, data for the NMS and RS tasks must be downloaded manually.
 
 ## How to train
 
@@ -104,6 +108,12 @@ Train a model for the computational protein design (**CPD**) task
 
 ```bash
 python3 src/train.py experiment=gcpnet_cpd.yaml
+```
+
+Train a model for the rectus-sinister (**RS**) classification task
+
+```bash
+python3 src/train.py experiment=gcpnet_rs.yaml
 ```
 
 **Note**: You can override any parameter from command line like this
@@ -225,6 +235,47 @@ NMS Dynamic Model
 ┡━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
 │         test/RMSE         │    0.13143806159496307    │
 │         test/loss         │   0.017275962978601456    │
+└───────────────────────────┴───────────────────────────┘
+```
+
+Reproduce our results for the RS task
+
+```bash
+rs_model_1_ckpt_path="checkpoints/RS/model_1_epoch_54_accuracy_0_9873.ckpt"
+rs_model_2_ckpt_path="checkpoints/RS/model_2_epoch_98_accuracy_0_9882.ckpt"
+rs_model_3_ckpt_path="checkpoints/RS/model_3_epoch_70_accuracy_0_9868.ckpt"
+
+python3 src/eval.py datamodule=rs model=gcpnet_rs logger=csv trainer.accelerator=gpu trainer.devices=1 ckpt_path="$rs_model_1_ckpt_path"
+python3 src/eval.py datamodule=rs model=gcpnet_rs logger=csv trainer.accelerator=gpu trainer.devices=1 ckpt_path="$rs_model_2_ckpt_path"
+python3 src/eval.py datamodule=rs model=gcpnet_rs logger=csv trainer.accelerator=gpu trainer.devices=1 ckpt_path="$rs_model_3_ckpt_path"
+```
+
+```bash
+RS Model 1
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃        Test metric        ┃       DataLoader 0        ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│       test/Accuracy       │    0.9873061776161194     │
+│          test/F1          │    0.9871618151664734     │
+│         test/loss         │   0.041416414082050323    │
+└───────────────────────────┴───────────────────────────┘
+
+RS Model 2
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃        Test metric        ┃       DataLoader 0        ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│       test/Accuracy       │    0.9882097840309143     │
+│          test/F1          │    0.9880651235580444     │
+│         test/loss         │    0.03607247397303581    │
+└───────────────────────────┴───────────────────────────┘
+
+RS Model 3
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃        Test metric        ┃       DataLoader 0        ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│       test/Accuracy       │    0.9867754578590393     │
+│          test/F1          │    0.9865953326225281     │
+│         test/loss         │    0.03678417205810547    │
 └───────────────────────────┴───────────────────────────┘
 ```
 
