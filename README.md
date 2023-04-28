@@ -21,6 +21,15 @@ A PyTorch implementation of Geometry-Complete SE(3)-Equivariant Perceptron Netwo
 
 ## How to run
 
+Install Mamba
+
+```bash
+wget "https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-$(uname)-$(uname -m).sh"
+bash Mambaforge-$(uname)-$(uname -m).sh  # accept all terms and install to the default location
+rm Mambaforge-$(uname)-$(uname -m).sh  # (optionally) remove installer after using it
+source ~/.bashrc  # alternatively, one can restart their shell session to achieve the same result
+```
+
 Install dependencies
 
 ```bash
@@ -29,8 +38,8 @@ git clone https://github.com/BioinfoMachineLearning/GCPNet
 cd gcpnet/
 
 # create conda environment
-conda env create -f environment.yaml
-conda activate gcpnet
+mamba env create -f environment.yaml
+conda activate gcpnet  # note: one still needs to use `conda` to (de)activate environments
 
 # install local project as package
 pip3 install -e .
@@ -259,10 +268,10 @@ We thank all their contributors and maintainers!
 If you use the code or data associated with this package or otherwise find this work useful, please cite:
 
 ```bibtex
-@article{morehead2022geometry,
+@article{morehead2023gcpnet,
   title={Geometry-Complete Perceptron Networks for 3D Molecular Graphs},
   author={Morehead, Alex and Cheng, Jianlin},
-  journal={arXiv preprint arXiv:2211.02504},
-  year={2022}
+  journal={AAAI Workshop on Deep Learning on Graphs: Methods and Applications},
+  year={2023}
 }
 ```
