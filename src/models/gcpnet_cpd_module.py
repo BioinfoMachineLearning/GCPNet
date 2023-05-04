@@ -125,6 +125,7 @@ class GCPNetCPDLitModule(LightningModule):
             ablate_frame_updates=module_cfg.ablate_frame_updates,
             ablate_scalars=module_cfg.ablate_scalars,
             ablate_vectors=module_cfg.ablate_vectors,
+            enable_e3_equivariance=module_cfg.enable_e3_equivariance
         )
 
         if not autoregressive_decoder:

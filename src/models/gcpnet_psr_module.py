@@ -99,6 +99,7 @@ class GCPNetPSRLitModule(LightningModule):
                 sigma_frame_gate=module_cfg.sigma_frame_gate,
                 vector_frame_residual=module_cfg.vector_frame_residual,
                 ablate_frame_updates=module_cfg.ablate_frame_updates,
+                enable_e3_equivariance=module_cfg.enable_e3_equivariance,
                 node_inputs=True
             )
         ])

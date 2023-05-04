@@ -122,6 +122,12 @@ python3 src/train.py experiment=gcpnet_cpd.yaml
 python3 src/train.py trainer.max_epochs=20 datamodule.batch_size=64
 ```
 
+_**New**_: For tasks that may benefit from it, you can now enable E(3) equivariance (i.e., scalar-wise chirality-insensitivity) within `GCPNet` from the command line like this
+
+```bash
+python3 src/train.py model.module_cfg.enable_e3_equivariance=true
+```
+
 ## How to evaluate
 Reproduce our results for the LBA task
 

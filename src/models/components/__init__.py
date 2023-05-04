@@ -269,6 +269,7 @@ def scalarize(
     edge_index: TensorType[2, "batch_num_edges"],
     frames: TensorType["batch_num_edges", 3, 3],
     node_inputs: bool,
+    enable_e3_equivariance: bool,
     dim_size: int,
     node_mask: Optional[TensorType["batch_num_nodes"]] = None
 ) -> TensorType["effective_batch_num_entities", 9]:
@@ -293,6 +294,13 @@ def scalarize(
         local_scalar_rep_i = local_scalar_rep_i.transpose(-1, -2)
     else:
         local_scalar_rep_i = torch.matmul(frames, vector_rep_i).transpose(-1, -2)
+
+    # potentially enable E(3)-equivariance and, thereby, chirality-invariance
+    if enable_e3_equivariance:
+        # avoid corrupting gradients with an in-place operation
+        local_scalar_rep_i_copy = local_scalar_rep_i.clone()
+        local_scalar_rep_i_copy[:, :, 1] = torch.abs(local_scalar_rep_i[:, :, 1])
+        local_scalar_rep_i = local_scalar_rep_i_copy
 
     # reshape frame-derived geometric scalars
     local_scalar_rep_i = local_scalar_rep_i.reshape(vector_rep_i.shape[0], 9)

@@ -43,6 +43,7 @@ class GCP(nn.Module):
             ablate_frame_updates: bool = False,
             ablate_scalars: bool = False,
             ablate_vectors: bool = False,
+            enable_e3_equivariance: bool = False,
             scalarization_vectorization_output_dim: int = 3,
             **kwargs
     ):
@@ -62,6 +63,7 @@ class GCP(nn.Module):
         self.vector_residual, self.vector_frame_residual = vector_residual, vector_frame_residual
         self.ablate_frame_updates = ablate_frame_updates
         self.ablate_scalars, self.ablate_vectors = ablate_scalars, ablate_vectors
+        self.enable_e3_equivariance = enable_e3_equivariance
 
         if self.scalar_gate > 0:
             self.norm = nn.LayerNorm(self.scalar_output_dim)
@@ -217,6 +219,7 @@ class GCP(nn.Module):
             edge_index,
             frames,
             node_inputs=node_inputs,
+            enable_e3_equivariance=self.enable_e3_equivariance,
             dim_size=vector_hidden_rep.shape[0],
             node_mask=node_mask
         )
@@ -262,6 +265,7 @@ class GCP2(nn.Module):
             ablate_frame_updates: bool = False,
             ablate_scalars: bool = False,
             ablate_vectors: bool = False,
+            enable_e3_equivariance: bool = False,
             scalarization_vectorization_output_dim: int = 3,
             **kwargs
     ):
@@ -281,6 +285,7 @@ class GCP2(nn.Module):
         self.vector_residual, self.vector_frame_residual = vector_residual, vector_frame_residual
         self.ablate_frame_updates = ablate_frame_updates
         self.ablate_scalars, self.ablate_vectors = ablate_scalars, ablate_vectors
+        self.enable_e3_equivariance = enable_e3_equivariance
 
         if self.scalar_gate > 0:
             self.norm = nn.LayerNorm(self.scalar_output_dim)
@@ -424,6 +429,7 @@ class GCP2(nn.Module):
                     edge_index,
                     frames,
                     node_inputs=node_inputs,
+                    enable_e3_equivariance=self.enable_e3_equivariance,
                     dim_size=vector_down_frames_hidden_rep.shape[0],
                     node_mask=node_mask
                 )
@@ -504,7 +510,8 @@ class GCPEmbedding(nn.Module):
             vector_frame_residual=cfg.vector_frame_residual,
             ablate_frame_updates=cfg.ablate_frame_updates,
             ablate_scalars=cfg.ablate_scalars,
-            ablate_vectors=cfg.ablate_vectors
+            ablate_vectors=cfg.ablate_vectors,
+            enable_e3_equivariance=cfg.enable_e3_equivariance
         )
 
         self.node_embedding = cfg.selected_GCP(
@@ -518,7 +525,8 @@ class GCPEmbedding(nn.Module):
             vector_frame_residual=cfg.vector_frame_residual,
             ablate_frame_updates=cfg.ablate_frame_updates,
             ablate_scalars=cfg.ablate_scalars,
-            ablate_vectors=cfg.ablate_vectors
+            ablate_vectors=cfg.ablate_vectors,
+            enable_e3_equivariance=cfg.enable_e3_equivariance
         )
 
     @typechecked
@@ -620,15 +628,16 @@ class GCPMessagePassing(nn.Module):
             primary_cfg_GCP(
                 (scalars_in_dim, vectors_in_dim),
                 output_dims,
-                nonlinearities=cfg.nonlinearities if self.conv_cfg.num_message_layers > 1 else None
+                nonlinearities=cfg.nonlinearities if self.conv_cfg.num_message_layers > 1 else None,
+                enable_e3_equivariance=cfg.enable_e3_equivariance
             )
         ]
 
         for _ in range(self.conv_cfg.num_message_layers - 2):
-            module_list.append(secondary_cfg_GCP(output_dims, output_dims))
+            module_list.append(secondary_cfg_GCP(output_dims, output_dims, enable_e3_equivariance=cfg.enable_e3_equivariance))
 
         if self.conv_cfg.num_message_layers > 1:
-            module_list.append(primary_cfg_GCP(output_dims, output_dims, nonlinearities=(None, None)))
+            module_list.append(primary_cfg_GCP(output_dims, output_dims, nonlinearities=(None, None), enable_e3_equivariance=cfg.enable_e3_equivariance))
 
         self.message_fusion = nn.ModuleList(module_list)
 
@@ -747,12 +756,13 @@ class GCPInteractions(nn.Module):
         ff_interaction_layers.append(
             ff_without_res_GCP(
                 node_dims, hidden_dims,
-                nonlinearities=None if layer_cfg.num_feedforward_layers == 1 else cfg.nonlinearities
+                nonlinearities=None if layer_cfg.num_feedforward_layers == 1 else cfg.nonlinearities,
+                enable_e3_equivariance=cfg.enable_e3_equivariance
             )
         )
 
         interaction_layers = [
-            ff_GCP(hidden_dims, hidden_dims)
+            ff_GCP(hidden_dims, hidden_dims, enable_e3_equivariance=cfg.enable_e3_equivariance)
             for _ in range(layer_cfg.num_feedforward_layers - 2)
         ]
         ff_interaction_layers.extend(interaction_layers)
@@ -761,7 +771,8 @@ class GCPInteractions(nn.Module):
             ff_interaction_layers.append(
                 ff_without_res_GCP(
                     hidden_dims, node_dims,
-                    nonlinearities=(None, None)
+                    nonlinearities=(None, None),
+                    enable_e3_equivariance=cfg.enable_e3_equivariance
                 )
             )
 
@@ -773,7 +784,8 @@ class GCPInteractions(nn.Module):
             node_position_update_gcps = [
                 ff_without_res_GCP(
                     node_dims, (node_dims.scalar, 1),
-                    nonlinearities=cfg.nonlinearities
+                    nonlinearities=cfg.nonlinearities,
+                    enable_e3_equivariance=cfg.enable_e3_equivariance
                 )
             ]
             self.node_position_update_network = nn.ModuleList(node_position_update_gcps)
