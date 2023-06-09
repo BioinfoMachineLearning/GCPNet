@@ -30,6 +30,8 @@ default_bottleneck: 4
 node_positions_weight: 1.0
 
 ablate_frame_updates: false
+ablate_scalars: false
+ablate_vectors: false
 ablate_x_force_update: true
 
 enable_e3_equivariance: false

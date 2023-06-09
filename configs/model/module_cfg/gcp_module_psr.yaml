@@ -28,5 +28,7 @@ default_vector_residual: false
 default_bottleneck: 4
 
 ablate_frame_updates: false
+ablate_scalars: false
+ablate_vectors: false
 
 enable_e3_equivariance: false
