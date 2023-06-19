@@ -52,8 +52,8 @@ log = utils.get_pylogger(__name__)
 
 
 @utils.task_wrapper
-def evaluate(cfg: DictConfig) -> Tuple[dict, dict]:
-    """Evaluates given checkpoint on a datamodule testset.
+def predict(cfg: DictConfig) -> Tuple[dict, dict]:
+    """Predicts with given checkpoint on a datamodule inputset.
 
     This method is wrapped in optional @task_wrapper decorator which applies extra utilities
     before and after the call.
@@ -109,22 +109,23 @@ def evaluate(cfg: DictConfig) -> Tuple[dict, dict]:
         path_cfg=hydra.utils.instantiate(cfg.paths)
     )
 
-    log.info("Starting testing!")
-    trainer.test(model=model, datamodule=datamodule)
+    log.info("Starting prediction!")
+    predictions = trainer.predict(model=model, datamodule=datamodule)
+    log.info(f"Predictions: {predictions}")
 
     metric_dict = trainer.callback_metrics
 
     return metric_dict, object_dict
 
 
-@hydra.main(version_base="1.2", config_path=root / "configs", config_name="eval.yaml")
+@hydra.main(version_base="1.2", config_path=root / "configs", config_name="predict.yaml")
 def main(cfg: DictConfig) -> None:
     # work around Hydra's (current) lack of support for arithmetic expressions with interpolated config variables
     # reference: https://github.com/facebookresearch/hydra/issues/1286
     if cfg.model.get("scheduler") is not None and cfg.model.scheduler.get("step_size") is not None:
         cfg.model.scheduler.step_size = eval(cfg.model.scheduler.get("step_size"))
 
-    evaluate(cfg)
+    predict(cfg)
 
 
 if __name__ == "__main__":

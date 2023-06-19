@@ -222,8 +222,7 @@ class EQDataset(Dataset):
         self.pdbtools_dir = pdbtools_dir
         self.num_pdbs = len(self.decoy_pdbs)
 
-        if not os.path.exists(self.model_data_cache_dir):
-            os.makedirs(self.model_data_cache_dir, exist_ok=True)
+        os.makedirs(self.model_data_cache_dir, exist_ok=True)
 
     def __len__(self):
         return self.num_pdbs
@@ -557,6 +556,7 @@ class EQDataset(Dataset):
             rbf_edge_dist_cutoff=self.rbf_edge_dist_cutoff,
             num_rbf=self.num_rbf
         )
-        data["decoy_pdb_filepath"], data["true_pdb_filepath"] = str(decoy_pdb_path), str(decoy_pdb_path)
+        data["decoy_pdb_filepath"] = str(decoy_pdb_path)
+        data["true_pdb_filepath"] = None if true_pdb_path is None else str(true_pdb_path)
 
         return data

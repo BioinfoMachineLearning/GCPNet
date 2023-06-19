@@ -353,6 +353,47 @@ class GCPNetARLitModule(LightningModule):
             metrics["true_pdb_filepath"] = batch.true_pdb_filepath[b_index]
             batch_metrics.append(metrics)
         return batch_metrics
+    
+    @torch.inference_mode()
+    def predict_step(self, batch: Batch, batch_idx: int, dataloader_idx: int = 0):
+        _, preds = self.forward(batch)
+        refinement_batch = self.record_refinement_preds(batch, preds)
+        return {"refinement_batch": refinement_batch}
+    
+    @torch.inference_mode()
+    @typechecked
+    def record_refinement_preds(self, batch: Batch, preds: torch.Tensor) -> List[Dict[str, Any]]:
+        # create temporary output PDB files for predictions
+        batch_metrics = []
+        initial_pos = batch.x.detach().cpu().numpy()
+        pred_pos = preds.detach().cpu().numpy()
+        batch_index = batch.batch.cpu().numpy()
+        for b_index in range(batch.num_graphs):
+            metrics = {}
+            temp_pdb_dir = tempfile._get_default_tempdir()
+            temp_pdb_code = next(tempfile._get_candidate_names())
+            initial_path = str(temp_pdb_dir / Path(f"init_{temp_pdb_code}").with_suffix(".pdb"))
+            prediction_path = str(temp_pdb_dir / Path(f"pred_{temp_pdb_code}").with_suffix(".pdb"))
+            # isolate each individual example within the current batch
+            initial_pos_ = initial_pos[batch_index == b_index]
+            pred_pos_ = pred_pos[batch_index == b_index]
+            residue_to_atom_names_mapping_ = batch.residue_to_atom_names_mapping[b_index][0]
+            write_residue_atom_positions_as_pdb(initial_path, initial_pos_, residue_to_atom_names_mapping_)
+            write_residue_atom_positions_as_pdb(prediction_path, pred_pos_, residue_to_atom_names_mapping_)
+            amber_relax(prediction_path, prediction_path)  # use AMBER to relax the predicted positions
+            # score initial as well as refined structure using MolProbity
+            init_molp_metrics = calculate_molprobity_metrics(initial_path, self.hparams.path_cfg.molprobity_exec_path)
+            pred_molp_metrics = calculate_molprobity_metrics(prediction_path, self.hparams.path_cfg.molprobity_exec_path)
+            # combine metrics
+            for init_metric in init_molp_metrics:
+                metrics[f"init_{init_metric}"] = init_molp_metrics[init_metric]
+            for pred_metric in pred_molp_metrics:
+                metrics[f"pred_{pred_metric}"] = pred_molp_metrics[pred_metric]
+            metrics["effective_initial_pdb_filepath"] = initial_path
+            metrics["effective_predicted_pdb_filepath"] = prediction_path
+            metrics["initial_pdb_filepath"] = batch.initial_pdb_filepath[b_index]
+            batch_metrics.append(metrics)
+        return batch_metrics
 
     def configure_optimizers(self):
         """Choose what optimizers and learning-rate schedulers to use in your optimization.

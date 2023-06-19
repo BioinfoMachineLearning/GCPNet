@@ -411,20 +411,24 @@ python3 src/eval.py datamodule=ar model=gcpnet_ar logger=csv trainer.accelerator
 ```
 
 ## How to predict
-Predict per-residue and per-model lDDT scores for a computationally-predicted (e.g., AlphaFold 2) protein structure decoy:
+Predict per-residue and per-model lDDT scores for a computationally-predicted (e.g., AlphaFold 2) protein structure decoy
 
 ```bash
 eq_model_ckpt_path="checkpoints/EQ/model_1_epoch_53_per_res_pearson_0_7443.ckpt"
+predict_batch_size=1  # adjust as desired according to available GPU memory
+num_workers=0  # note: required when initially processing new PDB file inputs, due to ESM's GPU usage
 
-python3 src/predict.py decoy_pdb_filepath=$MY_DECOY_PDB_FILEPATH datamodule=eq model=gcpnet_eq logger=csv trainer.accelerator=gpu trainer.devices=1 ckpt_path="$eq_model_ckpt_path"
+python3 src/predict.py model=gcpnet_eq datamodule=eq datamodule.predict_input_dir=$MY_INPUT_PDB_DIR datamodule.predict_true_dir=$MY_OPTIONAL_TRUE_PDB_DIR datamodule.predict_output_dir=$MY_OUTPUTS_DIR datamodule.predict_batch_size=$predict_batch_size datamodule.num_workers=$num_workers logger=csv trainer.accelerator=gpu trainer.devices=1 ckpt_path="$eq_model_ckpt_path"
 ```
 
-Predict a refined structure for a protein structure decoy:
+Predict a refined structure for a protein structure decoy
 
 ```bash
 ar_model_ckpt_path="checkpoints/AR/model_1_epoch_N.ckpt"
+predict_batch_size=1  # adjust as desired according to available GPU memory
+num_workers=0  # note: required when initially processing new PDB file inputs, due to ESM's GPU usage
 
-python3 src/predict.py decoy_pdb_filepath=$MY_DECOY_PDB_FILEPATH datamodule=ar model=gcpnet_ar logger=csv trainer.accelerator=gpu trainer.devices=1 ckpt_path="$ar_model_ckpt_path"
+python3 src/predict.py model=gcpnet_eq datamodule=eq datamodule.predict_input_dir=$MY_INPUT_PDB_DIR datamodule.predict_true_dir=$MY_OPTIONAL_TRUE_PDB_DIR datamodule.predict_output_dir=$MY_OUTPUTS_DIR datamodule.predict_batch_size=$predict_batch_size datamodule.num_workers=$num_workers logger=csv trainer.accelerator=gpu trainer.devices=1 ckpt_path="$ar_model_ckpt_path"
 ```
 
 ## Acknowledgements

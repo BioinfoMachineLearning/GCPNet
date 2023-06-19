@@ -416,6 +416,16 @@ class GCPNetEQLitModule(LightningModule):
                 prog_bar=True
             )
 
+    @torch.inference_mode()
+    def predict_step(self, batch: Any, batch_idx: int, dataloader_idx: int = 0):
+        _, res_preds = self.forward(batch)
+
+        # log per-model metrics
+        ca_batch = scatter(batch.batch[batch.mask], batch.atom_residue_idx[batch.mask], dim=0, reduce="mean").long()  # get node-batch indices for Ca atoms
+        global_preds = scatter(res_preds, ca_batch, dim=0, reduce="mean")  # get batch-wise global plDDT
+
+        return {"res_preds": res_preds, "global_preds": global_preds}
+
     def configure_optimizers(self):
         """Choose what optimizers and learning-rate schedulers to use in your optimization.
 

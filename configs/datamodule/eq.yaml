@@ -1,9 +1,8 @@
 _target_: src.datamodules.eq_datamodule.EQDataModule
-data_dir: ${paths.data_dir}EQ
-splits_dir: ${.data_dir}/splits
-decoy_dir: ${.data_dir}/decoy_model
-true_dir: ${.data_dir}/true_model
-model_data_cache_dir: ${.data_dir}/model_data_cache
+splits_dir: ${paths.data_dir}/EQ/splits
+decoy_dir: ${paths.data_dir}/EQ/decoy_model
+true_dir: ${paths.data_dir}/EQ/true_model
+model_data_cache_dir: ${paths.data_dir}/EQ/model_data_cache
 edge_cutoff: 4.5
 max_neighbors: 32
 rbf_edge_dist_cutoff: 4.5  # note: units are in Angstrom
@@ -14,3 +13,9 @@ pdbtools_dir:  # note: leaving `pdbtools_dir` as null will have the `ARDataset` 
 batch_size: 1
 num_workers: 4
 pin_memory: false
+# arguments for model inference
+predict_input_dir: ${paths.data_dir}/EQ/examples/decoy_model
+predict_true_dir: ${paths.data_dir}/EQ/examples/true_model
+predict_output_dir: ${paths.data_dir}/EQ/examples/outputs
+predict_batch_size: 1
+predict_pin_memory: false

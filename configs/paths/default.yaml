@@ -21,6 +21,6 @@ work_dir: ${hydra:runtime.cwd}
 grid_search_script_dir: 
 
 # paths to local executables
-tmscore_exec_path: ~/Programs/TMscore
-lddt_exec_path: ~/mambaforge/envs/gcpnet/bin/lddt
-molprobity_exec_path: ~/Programs/MolProbity/molprobity/cmdline/oneline-analysis
+tmscore_exec_path: ~/Programs/TMscore  # note: must be an absolute path during runtime
+lddt_exec_path: ~/mambaforge/envs/gcpnet/bin/lddt  # note: must be an absolute path during runtime
+molprobity_exec_path: ~/Programs/MolProbity/molprobity/cmdline/oneline-analysis  # note: must be an absolute path during runtime

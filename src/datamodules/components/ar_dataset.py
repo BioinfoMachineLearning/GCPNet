@@ -98,8 +98,7 @@ class ARDataset(Dataset):
         self.is_test_dataset = is_test_dataset
         self.num_pdbs = len(self.initial_pdbs)
 
-        if not os.path.exists(self.model_data_cache_dir):
-            os.makedirs(self.model_data_cache_dir, exist_ok=True)
+        os.makedirs(self.model_data_cache_dir, exist_ok=True)
 
         # filter the dataset down to only unprocessed examples
         if load_only_unprocessed_examples:

@@ -154,10 +154,14 @@ scripts/*_grid_search_scripts/*.done
 scripts/local/*.bash
 data/AR/*
 !data/AR/splits/
+!data/AR/examples/
+data/AR/examples/outputs/
 data/ATOM3D/*
 data/CATH/*
 data/EQ/*
 !data/EQ/splits/
+!data/EQ/examples/
+data/EQ/examples/outputs/
 data/NMS/*
 data/RS/*
 gcpnet/

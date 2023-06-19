@@ -3,8 +3,10 @@
 # -------------------------------------------------------------------------------------------------------------------------------------
 
 import os
+from pytorch_lightning.utilities.types import EVAL_DATALOADERS
 import torch
 import torch_geometric
+import numpy as np
 import pytorch_lightning as pl
 
 from typing import List, Optional, Dict, Any
@@ -23,7 +25,6 @@ log = utils.get_pylogger(__name__)
 class ARDataModule(pl.LightningDataModule):
     def __init__(
             self,
-            data_dir: str = os.path.join("data", "AR"),
             splits_dir: str = os.path.join("data", "AR", "splits"),
             af2_dir: str = os.path.join("data", "AR", "AF2_model"),
             true_dir: str = os.path.join("data", "AR", "true_model"),
@@ -40,7 +41,13 @@ class ARDataModule(pl.LightningDataModule):
             load_only_unprocessed_examples: bool = False,
             batch_size: int = 1,
             num_workers: int = 0,
-            pin_memory: bool = True
+            pin_memory: bool = True,
+            # arguments for model inference
+            predict_input_dir: str = os.path.join("data", "EQ", "examples", "decoy_model"),
+            predict_true_dir: Optional[str] = os.path.join("data", "EQ", "examples", "true_model"),
+            predict_output_dir: str = os.path.join("data", "EQ", "examples", "outputs"),
+            predict_batch_size: int = 1,
+            predict_pin_memory: bool = True,
     ):
         super().__init__()
 
@@ -83,6 +90,23 @@ class ARDataModule(pl.LightningDataModule):
                     "tmscore_metric": tm
                 })
         return split_entries
+    
+    @staticmethod
+    @typechecked
+    def parse_inference_pdbs(
+        decoy_dir: str,
+        true_dir: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        split_entries = []
+        for item in os.listdir(decoy_dir):
+            decoy_pdb_filepath = os.path.join(decoy_dir, item)
+            true_pdb_filepath = os.path.join(true_dir, item) if true_dir else None
+            split_entries.append({
+                "initial_pdb": decoy_pdb_filepath,
+                "true_pdb": true_pdb_filepath,
+                "tmscore_metrics": np.nan
+            })
+        return split_entries
 
     def setup(self, stage: Optional[str] = None):
         train_pdbs = self.parse_split_pdbs(
@@ -120,6 +144,13 @@ class ARDataModule(pl.LightningDataModule):
             "test_casp14_refinement.lst",
             max_tm_threshold=self.hparams.max_tmscore_metric_threshold
         )
+        predict_pdbs = self.parse_inference_pdbs(
+            decoy_dir=self.hparams.predict_input_dir,
+            true_dir=self.hparams.predict_true_dir
+        )
+
+        if stage in ["predict"]:
+            assert len(predict_pdbs) > 0, "PDB inputs must be provided during model inference."
 
         self.train_set = ARDataset(
             initial_pdbs=train_pdbs,
@@ -196,6 +227,21 @@ class ARDataModule(pl.LightningDataModule):
             load_only_unprocessed_examples=self.hparams.load_only_unprocessed_examples,
             is_test_dataset=True
         )
+        self.predict_set = ARDataset(
+            initial_pdbs=predict_pdbs,
+            model_data_cache_dir=self.hparams.predict_output_dir,
+            rbf_edge_dist_cutoff=self.hparams.rbf_edge_dist_cutoff,
+            num_rbf=self.hparams.num_rbf,
+            k_min=self.hparams.k_min,
+            k_max=self.hparams.k_max,
+            esm_model=getattr(self, "esm_model", None),
+            esm_batch_converter=getattr(self, "esm_batch_converter", None),
+            python_exec_path=self.hparams.python_exec_path,
+            pdbtools_dir=self.hparams.pdbtools_dir,
+            force_process_data=self.hparams.force_process_data,
+            load_only_unprocessed_examples=self.hparams.load_only_unprocessed_examples,
+            is_test_dataset=True
+        )
 
     @typechecked
     def get_dataloader(
@@ -257,6 +303,15 @@ class ARDataModule(pl.LightningDataModule):
                 drop_last=False
             )
         ]
+    
+    def predict_dataloader(self):
+        return self.get_dataloader(
+            self.predict_set,
+            batch_size=self.hparams.predict_batch_size,
+            pin_memory=self.hparams.predict_pin_memory,
+            shuffle=False,
+            drop_last=False
+        )
 
     def teardown(self, stage: Optional[str] = None):
         """Clean up after fit or test."""
@@ -278,5 +333,4 @@ if __name__ == "__main__":
 
     root = pyrootutils.setup_root(__file__, pythonpath=True)
     cfg = omegaconf.OmegaConf.load(root / "configs" / "datamodule" / "ar.yaml")
-    cfg.data_dir = str(root / "data" / "AR")
     _ = hydra.utils.instantiate(cfg)
