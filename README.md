@@ -68,6 +68,24 @@ navigating to https://figshare.com/s/e23be65a884ce7fc8543 and downloading the th
 
 **Note**: The ATOM3D datasets (i.e., the LBA and PSR datasets) as well as the CATH dataset we use will automatically be downloaded during execution of `src/train.py` or `src/eval.py` if they have not already been downloaded. However, data for the NMS and RS tasks must be downloaded manually.
 
+**Another Note**: TM-score and MolProbity are required to score predicted protein structures, where one can install them as follows:
+```bash
+# download and compile TM-score
+mkdir -p ~/Programs && cd ~/Programs
+wget https://zhanggroup.org/TM-score/TMscore.cpp
+g++ -static -O3 -ffast-math -lm -o TMscore TMscore.cpp
+rm TMscore.cpp
+
+# download and compile MolProbity
+# note: beforehand, make sure `svn` is installed locally using e.g., `apt install subversion` or `yum install subversion`
+mkdir -p ~/Programs/MolProbity && cd ~/Programs/MolProbity
+wget https://raw.githubusercontent.com/rlabduke/MolProbity/master/install_via_bootstrap.sh
+conda activate gcpnet  # ensure the `gcpnet` Conda environment is activated for installation
+bash install_via_bootstrap.sh 4  # note: `4` here indicates the number of processes to run in parallel for faster installation
+bash molprobity/setup.sh  # note: this command will likely fail due to not being run inside a GUI, but nonetheless installation should now be completed
+```
+Make sure to update the `tmscore_exec_path` and `molprobity_exec_path` values in e.g., `configs/paths/default.yaml` to reflect where you have placed the TM-score and MolProbity executables on your machine. Also, make sure that `lddt_exec_path` points to the `bin/lddt` path within your `gcpnet` Conda environment, where `lddt` is installed automatically as described in `environment.yaml`.
+
 ## How to train
 
 Train model with default configuration
@@ -114,6 +132,18 @@ Train a model for the computational protein design (**CPD**) task
 
 ```bash
 python3 src/train.py experiment=gcpnet_cpd.yaml
+```
+
+Train a model for the protein structure equivariant quality assessment (**EQ**) task (A.K.A. protein structure accuracy estimation - PSAE)
+
+```bash
+python3 src/train.py experiment=gcpnet_eq.yaml
+```
+
+Train a model for the protein structure atomic refinement (**AR**) task
+
+```bash
+python3 src/train.py experiment=gcpnet_ar.yaml
 ```
 
 **Note**: You can override any parameter from command line like this
@@ -306,6 +336,95 @@ CPD Model
 │     test/recovery/short      │      0.3333333432674408      │      0.3333333432674408      │      0.3333333432674408      │
 │  test/recovery/single_chain  │      0.3285714387893677      │      0.3285714387893677      │      0.3285714387893677      │
 └──────────────────────────────┴──────────────────────────────┴──────────────────────────────┴──────────────────────────────┘
+```
+
+Reproduce our results for the EQ task
+
+```bash
+eq_model_1_ckpt_path="checkpoints/EQ/model_1_epoch_53_per_res_pearson_0_7443.ckpt"
+eq_model_2_ckpt_path="checkpoints/EQ/model_2_epoch_25_per_res_pearson_0_7426.ckpt"
+eq_model_3_ckpt_path="checkpoints/EQ/model_3_epoch_14_per_res_pearson_0_7133.ckpt"
+
+python3 src/eval.py datamodule=eq model=gcpnet_eq logger=csv trainer.accelerator=gpu trainer.devices=1 ckpt_path="$eq_model_1_ckpt_path"
+python3 src/eval.py datamodule=eq model=gcpnet_eq logger=csv trainer.accelerator=gpu trainer.devices=1 ckpt_path="$eq_model_2_ckpt_path"
+python3 src/eval.py datamodule=eq model=gcpnet_eq logger=csv trainer.accelerator=gpu trainer.devices=1 ckpt_path="$eq_model_3_ckpt_path"
+```
+
+```bash
+EQ Model 1
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃          Test metric           ┃          DataLoader 0          ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│        test/PerModelMAE        │      0.04894806072115898       │
+│        test/PerModelMSE        │      0.004262289963662624      │
+│  test/PerModelPearsonCorrCoef  │       0.8362738490104675       │
+│       test/PerResidueMAE       │      0.06654192507266998       │
+│       test/PerResidueMSE       │      0.009298641234636307      │
+│ test/PerResiduePearsonCorrCoef │       0.7442569732666016       │
+│           test/loss            │      0.005294517148286104      │
+└────────────────────────────────┴────────────────────────────────┘
+
+EQ Model 2
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃          Test metric           ┃          DataLoader 0          ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│        test/PerModelMAE        │      0.04955434799194336       │
+│        test/PerModelMSE        │      0.004251933190971613      │
+│  test/PerModelPearsonCorrCoef  │       0.841285228729248        │
+│       test/PerResidueMAE       │      0.06787651032209396       │
+│       test/PerResidueMSE       │      0.009320290759205818      │
+│ test/PerResiduePearsonCorrCoef │       0.7426220774650574       │
+│           test/loss            │      0.005294565111398697      │
+└────────────────────────────────┴────────────────────────────────┘
+
+EQ Model 3
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃          Test metric           ┃          DataLoader 0          ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│        test/PerModelMAE        │      0.05056113377213478       │
+│        test/PerModelMSE        │      0.004722739569842815      │
+│  test/PerModelPearsonCorrCoef  │       0.8154276013374329       │
+│       test/PerResidueMAE       │      0.07143402099609375       │
+│       test/PerResidueMSE       │      0.01017170213162899       │
+│ test/PerResiduePearsonCorrCoef │       0.7132763266563416       │
+│           test/loss            │      0.005769775714725256      │
+└────────────────────────────────┴────────────────────────────────┘
+```
+
+Reproduce our results for the AR task
+
+```bash
+ar_model_1_ckpt_path="checkpoints/AR/model_1_epoch_A.ckpt"
+ar_model_2_ckpt_path="checkpoints/AR/model_2_epoch_B.ckpt"
+ar_model_3_ckpt_path="checkpoints/AR/model_3_epoch_C.ckpt"
+ar_model_4_ckpt_path="checkpoints/AR/model_4_epoch_D.ckpt"
+ar_model_5_ckpt_path="checkpoints/AR/model_5_epoch_E.ckpt"
+ar_model_6_ckpt_path="checkpoints/AR/model_6_epoch_F.ckpt"
+ar_model_7_ckpt_path="checkpoints/AR/model_7_epoch_G.ckpt"
+ar_model_8_ckpt_path="checkpoints/AR/model_8_epoch_H.ckpt"
+ar_model_9_ckpt_path="checkpoints/AR/model_9_epoch_I.ckpt"
+ar_model_10_ckpt_path="checkpoints/AR/model_10_epoch_J.ckpt"
+
+python3 src/eval.py datamodule=ar model=gcpnet_ar logger=csv trainer.accelerator=gpu trainer.devices=1 ckpt_path="$ar_model_1_ckpt_path"
+...
+python3 src/eval.py datamodule=ar model=gcpnet_ar logger=csv trainer.accelerator=gpu trainer.devices=1 ckpt_path="$ar_model_10_ckpt_path"
+```
+
+## How to predict
+Predict per-residue and per-model lDDT scores for a computationally-predicted (e.g., AlphaFold 2) protein structure decoy:
+
+```bash
+eq_model_ckpt_path="checkpoints/EQ/model_1_epoch_53_per_res_pearson_0_7443.ckpt"
+
+python3 src/predict.py decoy_pdb_filepath=$MY_DECOY_PDB_FILEPATH datamodule=eq model=gcpnet_eq logger=csv trainer.accelerator=gpu trainer.devices=1 ckpt_path="$eq_model_ckpt_path"
+```
+
+Predict a refined structure for a protein structure decoy:
+
+```bash
+ar_model_ckpt_path="checkpoints/AR/model_1_epoch_N.ckpt"
+
+python3 src/predict.py decoy_pdb_filepath=$MY_DECOY_PDB_FILEPATH datamodule=ar model=gcpnet_ar logger=csv trainer.accelerator=gpu trainer.devices=1 ckpt_path="$ar_model_ckpt_path"
 ```
 
 ## Acknowledgements

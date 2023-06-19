@@ -1,0 +1,16 @@
+_target_: src.datamodules.eq_datamodule.EQDataModule
+data_dir: ${paths.data_dir}EQ
+splits_dir: ${.data_dir}/splits
+decoy_dir: ${.data_dir}/decoy_model
+true_dir: ${.data_dir}/true_model
+model_data_cache_dir: ${.data_dir}/model_data_cache
+edge_cutoff: 4.5
+max_neighbors: 32
+rbf_edge_dist_cutoff: 4.5  # note: units are in Angstrom
+num_rbf: 16
+python_exec_path:  # note: providing a value for `python_exec_path` is required when also providing a value for `pdbtools_dir`, to run `pdb-tools`
+lddt_exec_path:  # note: leaving `lddt_exec_path` as null will have the `ARDataset` run `lDDT` CLI-directly
+pdbtools_dir:  # note: leaving `pdbtools_dir` as null will have the `ARDataset` run `pdb-tools` CLI-directly
+batch_size: 1
+num_workers: 4
+pin_memory: false

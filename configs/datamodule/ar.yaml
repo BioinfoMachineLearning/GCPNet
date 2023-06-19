@@ -1,0 +1,19 @@
+_target_: src.datamodules.ar_datamodule.ARDataModule
+data_dir: ${paths.data_dir}AR
+splits_dir: ${.data_dir}/splits
+af2_dir: ${.data_dir}/AF2_model
+true_dir: ${.data_dir}/true_model
+model_data_cache_dir: ${.data_dir}/model_data_cache
+split_index: 1  # for 10-fold cross-validation, choose from [1, 10]
+rbf_edge_dist_cutoff: 4.5  # note: units are in Angstrom
+num_rbf: 16
+k_min: 12  # note: must be greater than 0
+k_max: 128  # note: must be greater than 0
+max_tmscore_metric_threshold: 1.1
+python_exec_path:  # note: providing a value for `python_exec_path` is required when also providing a value for `pdbtools_dir`, to run `pdb-tools`
+pdbtools_dir:  # note: leaving `pdbtools_dir` as null will have the `ARDataset` run `pdb-tools` CLI-directly
+force_process_data: false
+load_only_unprocessed_examples: false
+batch_size: 1
+num_workers: 4
+pin_memory: false
