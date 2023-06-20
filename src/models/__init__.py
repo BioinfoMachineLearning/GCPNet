@@ -9,6 +9,7 @@ import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 
+from biopandas.pdb import PandasPdb
 from torch_scatter import scatter
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
 
@@ -209,6 +210,24 @@ def write_residue_atom_positions_as_pdb(
                 f.write(line + "\n")
                 j = j + 1
             i = i + 1
+
+
+@typechecked
+def annotate_pdb_with_new_column_values(
+    input_pdb_filepath: str,
+    output_pdb_filepath: str,
+    column_name: str,
+    new_column_values: np.ndarray,
+    pdb_df_key: str = "ATOM"
+):
+    pdb = PandasPdb().read_pdb(input_pdb_filepath)
+    if len(pdb.df[pdb_df_key]) > 0 and column_name in pdb.df[pdb_df_key]:
+        if column_name in ["b_factor"]:
+            residue_indices = (pdb.df[pdb_df_key]["residue_number"].values - pdb.df[pdb_df_key]["residue_number"].values.min())
+            pdb.df[pdb_df_key].loc[:, column_name] = new_column_values[residue_indices]
+        else:
+            raise NotImplementedError(f"PDB column {column_name} is currently not supported.")
+    pdb.to_pdb(output_pdb_filepath)
 
 
 def amber_relax(input_pdb_filepath: str, output_pdb_filepath: str, verbose: bool = True):

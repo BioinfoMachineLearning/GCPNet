@@ -511,7 +511,7 @@ class EQDataset(Dataset):
     @typechecked
     def _featurize_as_graph(
         self,
-        pdb_filename_dict: Dict[str, str],
+        pdb_filename_dict: Dict[str, Any],
         atom_df_name: str = "ATOM",
         chain_id_col: str = "chain_id"
     ) -> Data:

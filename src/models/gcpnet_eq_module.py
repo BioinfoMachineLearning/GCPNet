@@ -3,20 +3,25 @@
 # -------------------------------------------------------------------------------------------------------------------------------------
 
 import os
+import tempfile
 import torch
 import torchmetrics
 
+import numpy as np
+import pandas as pd
 import torch.nn as nn
 
+from datetime import datetime
+from pathlib import Path
 from pytorch_lightning import LightningModule
 from functools import partial
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 from torch_scatter import scatter
 from omegaconf import DictConfig
 
 from src import utils
-from src.datamodules.components.eq_dataset import ATOM_TYPES
-from src.models import HALT_FILE_EXTENSION, Queue, convert_idx_from_batch_local_to_global, get_grad_norm
+from src.datamodules.components.eq_dataset import ATOM_TYPES, MAX_PLDDT_VALUE
+from src.models import HALT_FILE_EXTENSION, Queue, annotate_pdb_with_new_column_values, convert_idx_from_batch_local_to_global, get_grad_norm
 from src.models.components import centralize, localize
 from src.models.components.gcpnet import GCPEmbedding, GCPLayerNorm, ScalarVector
 
@@ -132,7 +137,7 @@ class GCPNetEQLitModule(LightningModule):
         # use separate metrics instances for the steps
         # of each phase (e.g., train, val and test)
         # to ensure a proper reduction over the epoch
-        self.train_phase, self.val_phase, self.test_phase = "train", "val", "test"
+        self.train_phase, self.val_phase, self.test_phase, self.predict_phase = "train", "val", "test", "predict"
         phases = [self.train_phase, self.val_phase, self.test_phase]
 
         metrics = {
@@ -416,15 +421,113 @@ class GCPNetEQLitModule(LightningModule):
                 prog_bar=True
             )
 
+    def on_predict_epoch_start(self):
+        # configure loss function for inference to report loss values per batch element
+        self.criterion = torch.nn.SmoothL1Loss(reduction='none')
+        # define where the final predictions should be recorded
+        self.predictions_csv_path = os.path.join(
+            self.trainer.default_root_dir,
+            f"{self.predict_phase}_{datetime.now().strftime('%Y%m%d_%H%M%S')}_rank_{self.global_rank}_predictions.csv",
+        )
+
     @torch.inference_mode()
     def predict_step(self, batch: Any, batch_idx: int, dataloader_idx: int = 0):
-        _, res_preds = self.forward(batch)
+        batch.init_h = batch.h.clone()
+        if hasattr(batch, "true_pdb_filepath") and all(batch.true_pdb_filepath):
+            # note: currently, we can only score the loss for batches without any missing true (i.e., native) PDB files
+            loss, preds, labels = self.step(batch)
+        else:
+            _, preds = self.forward(batch)
+            loss, labels = None, None
 
-        # log per-model metrics
-        ca_batch = scatter(batch.batch[batch.mask], batch.atom_residue_idx[batch.mask], dim=0, reduce="mean").long()  # get node-batch indices for Ca atoms
-        global_preds = scatter(res_preds, ca_batch, dim=0, reduce="mean")  # get batch-wise global plDDT
+        # collect per-model predictions
+        batch.ca_batch = scatter(batch.batch[batch.mask], batch.atom_residue_idx[batch.mask], dim=0, reduce="mean").long()  # get node-batch indices for Ca atoms
+        global_preds = scatter(preds, batch.ca_batch, dim=0, reduce="mean")  # get batch-wise global plDDT
 
-        return {"res_preds": res_preds, "global_preds": global_preds}
+        if loss is not None:
+            # get batch-wise global plDDT loss
+            loss = scatter(loss, batch.ca_batch, dim=0, reduce="mean")
+            # get initial residue-wise plDDT values from AlphaFold
+            batch.initial_res_scores = scatter(batch.init_h[:, -1][batch.mask], batch.atom_residue_idx[batch.mask], dim=0, reduce="mean")
+
+        # collect outputs, and visualize predicted lDDT scores
+        step_outputs = self.record_qa_preds(
+            batch=batch,
+            res_preds=preds,
+            global_preds=global_preds,
+            loss=loss,
+            labels=labels
+        )
+        return step_outputs
+    
+    def on_predict_epoch_end(self, outputs: List[Any]):
+        prediction_outputs = [
+            output for output_ in outputs for output__ in output_ for output in output__
+        ]
+        # compile predictions collected by the current device (e.g., rank zero)
+        predictions_csv_df = pd.DataFrame(prediction_outputs)
+        predictions_csv_df.to_csv(self.predictions_csv_path, index=False)
+    
+    @torch.inference_mode()
+    @typechecked
+    def record_qa_preds(
+        self,
+        batch: Any,
+        res_preds: torch.Tensor,
+        global_preds: torch.Tensor,
+        loss: Optional[torch.Tensor] = None,
+        labels: Optional[torch.Tensor] = None,
+        plddt_scale_factor: float = MAX_PLDDT_VALUE
+    ) -> List[Dict[str, Any]]:
+        # create temporary output PDB files for predictions
+        batch_metrics = []
+        initial_res_scores = batch.initial_res_scores.detach().cpu().numpy()
+        pred_res_scores = res_preds.detach().cpu().numpy()
+        pred_global_scores = global_preds.detach().cpu().numpy()
+        batch_loss = None if loss is None else loss.detach().cpu().numpy()
+        batch_labels = None if labels is None else labels.detach().cpu().numpy()
+        res_batch_index = batch.ca_batch.detach().cpu().numpy()
+        for b_index in range(batch.num_graphs):
+            metrics = {}
+            temp_pdb_dir = tempfile._get_default_tempdir()
+            temp_pdb_code = next(tempfile._get_candidate_names())
+            initial_pdb_filepath = batch.decoy_pdb_filepath[b_index]
+            prediction_path = str(temp_pdb_dir / Path(f"predicted_{temp_pdb_code}").with_suffix(".pdb"))
+            true_path = str(temp_pdb_dir / Path(f"true_{temp_pdb_code}").with_suffix(".pdb"))
+            # isolate each individual example within the current batch
+            initial_res_scores_ = initial_res_scores[res_batch_index == b_index] * plddt_scale_factor
+            pred_res_scores_ = pred_res_scores[res_batch_index == b_index] * plddt_scale_factor
+            pred_global_score_ = pred_global_scores[b_index] * plddt_scale_factor
+            loss_ = np.nan if batch_loss is None else batch_loss[b_index]
+            labels_ = None if batch_labels is None else batch_labels[res_batch_index == b_index] * plddt_scale_factor
+            annotate_pdb_with_new_column_values(
+                input_pdb_filepath=initial_pdb_filepath,
+                output_pdb_filepath=prediction_path,
+                column_name="b_factor",
+                new_column_values=pred_res_scores_
+            )
+            if labels_ is not None:
+                annotate_pdb_with_new_column_values(
+                    input_pdb_filepath=initial_pdb_filepath,
+                    output_pdb_filepath=true_path,
+                    column_name="b_factor",
+                    new_column_values=labels_
+                )
+                initial_per_res_plddt_ae = (np.abs(initial_res_scores_ - labels_).mean() / plddt_scale_factor)
+                pred_per_res_plddt_ae = (np.abs(pred_res_scores_ - labels_).mean() / plddt_scale_factor)
+            else:
+                true_path = None
+                initial_per_res_plddt_ae = None
+                pred_per_res_plddt_ae = None
+            metrics["input_annotated_pdb_filepath"] = initial_pdb_filepath
+            metrics["predicted_annotated_pdb_filepath"] = prediction_path
+            metrics["true_annotated_pdb_filepath"] = true_path
+            metrics["global_plddt"] = pred_global_score_
+            metrics["plddt_loss"] = loss_
+            metrics["input_per_residue_plddt_absolute_error"] = initial_per_res_plddt_ae
+            metrics["predicted_per_residue_plddt_absolute_error"] = pred_per_res_plddt_ae
+            batch_metrics.append(metrics)
+        return batch_metrics
 
     def configure_optimizers(self):
         """Choose what optimizers and learning-rate schedulers to use in your optimization.

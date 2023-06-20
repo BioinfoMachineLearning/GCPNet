@@ -110,8 +110,8 @@ def predict(cfg: DictConfig) -> Tuple[dict, dict]:
     )
 
     log.info("Starting prediction!")
-    predictions = trainer.predict(model=model, datamodule=datamodule)
-    log.info(f"Predictions: {predictions}")
+    trainer.predict(model=model, datamodule=datamodule)
+    log.info(f"Predictions saved to: {trainer.model.predictions_csv_path}")
 
     metric_dict = trainer.callback_metrics
 
