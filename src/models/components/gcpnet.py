@@ -654,7 +654,7 @@ class GCP3(nn.Module):
             merged = torch.cat((scalar_rep, vector_norm), dim=-1)
 
             if not self.ablate_frame_updates:
-                # GCP2: curate direction-robust scalar geometric features
+                # GCP3: curate direction-robust scalar geometric features
                 vector_down_frames_hidden_rep = self.vector_down_frames(v_pre)
                 scalar_hidden_rep = scalarize(
                     vector_down_frames_hidden_rep.transpose(-1, -2),
@@ -683,7 +683,7 @@ class GCP3(nn.Module):
             # GCP-Baseline: update vector features using row-wise scalar gating
             vector_rep = self.process_vector_without_frames(scalar_rep, v_pre, vector_hidden_rep)
         else:
-            # GCP2: update vector features using either row-wise scalar gating with complete local frames or row-wise self-scalar gating
+            # GCP3: update vector features using either row-wise scalar gating with complete local frames or row-wise self-scalar gating
             vector_rep = self.process_vector_with_frames(
                 scalar_rep,
                 v_pre,
