@@ -10,13 +10,14 @@ import torchmetrics
 import wandb
 
 import pandas as pd
-from pathlib import Path
 import torch.nn as nn
 
+from datetime import datetime
 from omegaconf import DictConfig
-from typing import Any, Dict, List, Optional, Tuple, Union
+from pathlib import Path
 from pytorch_lightning import LightningModule
 from torch_geometric.data import Batch
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from src import utils
 from src.datamodules.components.eq_dataset import generate_lddt_score
@@ -107,7 +108,7 @@ class GCPNetARLitModule(LightningModule):
         # use separate metrics instances for the steps
         # of each phase (e.g., train, val and test)
         # to ensure a proper reduction over the epoch
-        self.train_phase, self.val_phase, self.test_phase = "train", "val", "test"
+        self.train_phase, self.val_phase, self.test_phase, self.predict_phase = "train", "val", "test", "predict"
         refinement_test_metrics = [
             "GDT-TS", "GDT-HA", "RMSD", "lddt_score",
             "improvement_score", "molprobity_score",
@@ -117,7 +118,7 @@ class GCPNetARLitModule(LightningModule):
         self.all_refinement_test_metrics = [
             metric_name if metric_name in ["improvement_score"] else f"{prefix}_{metric_name}"
             for metric_name in refinement_test_metrics
-            for prefix in ["init", "pred"]
+            for prefix in ["init", "pred", "relaxed_pred"]
         ]
 
     @staticmethod
@@ -274,6 +275,7 @@ class GCPNetARLitModule(LightningModule):
                 columns=refinement_metrics_df.columns.to_list() + [
                     f"{self.test_phase}/effective_initial_structure",
                     f"{self.test_phase}/effective_predicted_structure",
+                    f"{self.test_phase}/effective_relaxed_predicted_structure",
                     f"{self.test_phase}/effective_true_structure",
                     f"{self.test_phase}/initial_structure",
                     f"{self.test_phase}/true_structure",
@@ -284,6 +286,7 @@ class GCPNetARLitModule(LightningModule):
                 row_metrics = row.to_list() + [
                     wandb.Molecule(row[f"{self.test_phase}/effective_initial_pdb_filepath"]),
                     wandb.Molecule(row[f"{self.test_phase}/effective_predicted_pdb_filepath"]),
+                    wandb.Molecule(row[f"{self.test_phase}/effective_relaxed_predicted_pdb_filepath"]),
                     wandb.Molecule(row[f"{self.test_phase}/effective_true_pdb_filepath"]),
                     wandb.Molecule(row[f"{self.test_phase}/initial_pdb_filepath"]),
                     wandb.Molecule(row[f"{self.test_phase}/true_pdb_filepath"]),
@@ -313,6 +316,7 @@ class GCPNetARLitModule(LightningModule):
             temp_pdb_code = next(tempfile._get_candidate_names())
             initial_path = str(temp_pdb_dir / Path(f"init_{temp_pdb_code}").with_suffix(".pdb"))
             prediction_path = str(temp_pdb_dir / Path(f"pred_{temp_pdb_code}").with_suffix(".pdb"))
+            relaxed_prediction_path = str(temp_pdb_dir / Path(f"relaxed_pred_{temp_pdb_code}").with_suffix(".pdb"))
             reference_path = str(temp_pdb_dir / Path(f"ref_{temp_pdb_code}").with_suffix(".pdb"))
             # isolate each individual example within the current batch
             initial_pos_ = initial_pos[batch_index == b_index]
@@ -322,43 +326,72 @@ class GCPNetARLitModule(LightningModule):
             write_residue_atom_positions_as_pdb(initial_path, initial_pos_, residue_to_atom_names_mapping_)
             write_residue_atom_positions_as_pdb(prediction_path, pred_pos_, residue_to_atom_names_mapping_)
             write_residue_atom_positions_as_pdb(reference_path, label_pos_, residue_to_atom_names_mapping_)
-            amber_relax(prediction_path, prediction_path)  # use AMBER to relax the predicted positions
+            amber_relax(prediction_path, relaxed_prediction_path)  # use AMBER to relax the predicted positions
             # score initial as well as refined structure using TM-score
             init_tmscore_metrics = calculate_tmscore_metrics(initial_path, reference_path, self.hparams.path_cfg.tmscore_exec_path)
             pred_tmscore_metrics = calculate_tmscore_metrics(prediction_path, reference_path, self.hparams.path_cfg.tmscore_exec_path)
+            relaxed_pred_tmscore_metrics = calculate_tmscore_metrics(relaxed_prediction_path, reference_path, self.hparams.path_cfg.tmscore_exec_path)
             # score initial as well as refined structure using lDDT
             init_lddt_metric = generate_lddt_score(initial_path, reference_path, self.hparams.path_cfg.lddt_exec_path)
             pred_lddt_metric = generate_lddt_score(prediction_path, reference_path, self.hparams.path_cfg.lddt_exec_path)
+            relaxed_pred_lddt_metric = generate_lddt_score(relaxed_prediction_path, reference_path, self.hparams.path_cfg.lddt_exec_path)
             # score initial as well as refined structure using MolProbity
             init_molp_metrics = calculate_molprobity_metrics(initial_path, self.hparams.path_cfg.molprobity_exec_path)
             pred_molp_metrics = calculate_molprobity_metrics(prediction_path, self.hparams.path_cfg.molprobity_exec_path)
+            relaxed_pred_molp_metrics = calculate_molprobity_metrics(relaxed_prediction_path, self.hparams.path_cfg.molprobity_exec_path)
             # keep track of improvements to GDT-HA scores
-            improvement_score = 1 if pred_tmscore_metrics["GDT-HA"] > init_tmscore_metrics["GDT-HA"] else 0
+            pred_improvement_score = 1 if pred_tmscore_metrics["GDT-HA"] > init_tmscore_metrics["GDT-HA"] else 0
+            relaxed_pred_improvement_score = 1 if relaxed_pred_tmscore_metrics["GDT-HA"] > init_tmscore_metrics["GDT-HA"] else 0
             # combine metrics
             for init_metric in init_tmscore_metrics:
                 metrics[f"init_{init_metric}"] = init_tmscore_metrics[init_metric]
             for pred_metric in pred_tmscore_metrics:
                 metrics[f"pred_{pred_metric}"] = pred_tmscore_metrics[pred_metric]
+            for relaxed_pred_metric in relaxed_pred_tmscore_metrics:
+                metrics[f"relaxed_pred_{relaxed_pred_metric}"] = relaxed_pred_tmscore_metrics[relaxed_pred_metric]
             for init_metric in init_molp_metrics:
                 metrics[f"init_{init_metric}"] = init_molp_metrics[init_metric]
             for pred_metric in pred_molp_metrics:
                 metrics[f"pred_{pred_metric}"] = pred_molp_metrics[pred_metric]
+            for relaxed_pred_metric in relaxed_pred_molp_metrics:
+                metrics[f"relaxed_pred_{relaxed_pred_metric}"] = relaxed_pred_molp_metrics[relaxed_pred_metric]
             metrics["init_lddt_score"] = init_lddt_metric.mean().item()
             metrics["pred_lddt_score"] = pred_lddt_metric.mean().item()
-            metrics["improvement_score"] = improvement_score
+            metrics["relaxed_pred_lddt_score"] = relaxed_pred_lddt_metric.mean().item()
+            metrics["pred_improvement_score"] = pred_improvement_score
+            metrics["relaxed_pred_improvement_score"] = relaxed_pred_improvement_score
             metrics["effective_initial_pdb_filepath"] = initial_path
             metrics["effective_predicted_pdb_filepath"] = prediction_path
+            metrics["effective_relaxed_predicted_pdb_filepath"] = relaxed_prediction_path
             metrics["effective_true_pdb_filepath"] = reference_path
             metrics["initial_pdb_filepath"] = batch.initial_pdb_filepath[b_index]
             metrics["true_pdb_filepath"] = batch.true_pdb_filepath[b_index]
             batch_metrics.append(metrics)
         return batch_metrics
     
+    def on_predict_epoch_start(self):
+        # define where the final predictions should be recorded
+        self.predictions_csv_path = os.path.join(
+            self.trainer.default_root_dir,
+            f"{self.predict_phase}_{datetime.now().strftime('%Y%m%d_%H%M%S')}_rank_{self.global_rank}_predictions.csv",
+        )
+    
     @torch.inference_mode()
+    @typechecked
     def predict_step(self, batch: Batch, batch_idx: int, dataloader_idx: int = 0):
         _, preds = self.forward(batch)
-        refinement_batch = self.record_refinement_preds(batch, preds)
-        return {"refinement_batch": refinement_batch}
+        step_outputs = self.record_refinement_preds(batch, preds)
+        return step_outputs
+    
+    @torch.inference_mode()
+    @typechecked
+    def on_predict_epoch_end(self, outputs: List[Any]):
+        prediction_outputs = [
+            output for output_ in outputs for output__ in output_ for output in output__
+        ]
+        # compile predictions collected by the current device (e.g., rank zero)
+        predictions_csv_df = pd.DataFrame(prediction_outputs)
+        predictions_csv_df.to_csv(self.predictions_csv_path, index=False)
     
     @torch.inference_mode()
     @typechecked
@@ -374,23 +407,28 @@ class GCPNetARLitModule(LightningModule):
             temp_pdb_code = next(tempfile._get_candidate_names())
             initial_path = str(temp_pdb_dir / Path(f"init_{temp_pdb_code}").with_suffix(".pdb"))
             prediction_path = str(temp_pdb_dir / Path(f"pred_{temp_pdb_code}").with_suffix(".pdb"))
+            relaxed_prediction_path = str(temp_pdb_dir / Path(f"relaxed_pred_{temp_pdb_code}").with_suffix(".pdb"))
             # isolate each individual example within the current batch
             initial_pos_ = initial_pos[batch_index == b_index]
             pred_pos_ = pred_pos[batch_index == b_index]
             residue_to_atom_names_mapping_ = batch.residue_to_atom_names_mapping[b_index][0]
             write_residue_atom_positions_as_pdb(initial_path, initial_pos_, residue_to_atom_names_mapping_)
             write_residue_atom_positions_as_pdb(prediction_path, pred_pos_, residue_to_atom_names_mapping_)
-            amber_relax(prediction_path, prediction_path)  # use AMBER to relax the predicted positions
+            amber_relax(prediction_path, relaxed_prediction_path)  # use AMBER to relax the predicted positions
             # score initial as well as refined structure using MolProbity
             init_molp_metrics = calculate_molprobity_metrics(initial_path, self.hparams.path_cfg.molprobity_exec_path)
             pred_molp_metrics = calculate_molprobity_metrics(prediction_path, self.hparams.path_cfg.molprobity_exec_path)
+            relaxed_pred_molp_metrics = calculate_molprobity_metrics(relaxed_prediction_path, self.hparams.path_cfg.molprobity_exec_path)
             # combine metrics
             for init_metric in init_molp_metrics:
                 metrics[f"init_{init_metric}"] = init_molp_metrics[init_metric]
             for pred_metric in pred_molp_metrics:
                 metrics[f"pred_{pred_metric}"] = pred_molp_metrics[pred_metric]
+            for relaxed_pred_metric in relaxed_pred_molp_metrics:
+                metrics[f"relaxed_pred_{relaxed_pred_metric}"] = relaxed_pred_molp_metrics[relaxed_pred_metric]
             metrics["effective_initial_pdb_filepath"] = initial_path
             metrics["effective_predicted_pdb_filepath"] = prediction_path
+            metrics["effective_relaxed_predicted_pdb_filepath"] = relaxed_prediction_path
             metrics["initial_pdb_filepath"] = batch.initial_pdb_filepath[b_index]
             batch_metrics.append(metrics)
         return batch_metrics

@@ -12,12 +12,12 @@ import pandas as pd
 import torch.nn as nn
 
 from datetime import datetime
+from functools import partial
+from omegaconf import DictConfig
 from pathlib import Path
 from pytorch_lightning import LightningModule
-from functools import partial
-from typing import Any, Dict, List, Optional, Tuple, Union
 from torch_scatter import scatter
-from omegaconf import DictConfig
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from src import utils
 from src.datamodules.components.eq_dataset import ATOM_TYPES, MAX_PLDDT_VALUE
@@ -431,6 +431,7 @@ class GCPNetEQLitModule(LightningModule):
         )
 
     @torch.inference_mode()
+    @typechecked
     def predict_step(self, batch: Any, batch_idx: int, dataloader_idx: int = 0):
         batch.init_h = batch.h.clone()
         if hasattr(batch, "true_pdb_filepath") and all(batch.true_pdb_filepath):
@@ -460,6 +461,8 @@ class GCPNetEQLitModule(LightningModule):
         )
         return step_outputs
     
+    @torch.inference_mode()
+    @typechecked
     def on_predict_epoch_end(self, outputs: List[Any]):
         prediction_outputs = [
             output for output_ in outputs for output__ in output_ for output in output__

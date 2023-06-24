@@ -28,6 +28,12 @@ patch_typeguard()  # use before @typechecked
 
 HALT_FILE_EXTENSION = "done"
 
+RELAX_MAX_ITERATIONS = 0
+RELAX_ENERGY_TOLERANCE = 2.39
+RELAX_STIFFNESS = 10.0
+RELAX_EXCLUDE_RESIDUES = []
+RELAX_MAX_OUTER_ITERATIONS = 3
+
 
 log = utils.get_pylogger(__name__)
 
@@ -230,17 +236,17 @@ def annotate_pdb_with_new_column_values(
     pdb.to_pdb(output_pdb_filepath)
 
 
-def amber_relax(input_pdb_filepath: str, output_pdb_filepath: str, verbose: bool = True):
+def amber_relax(input_pdb_filepath: str, output_pdb_filepath: str, use_gpu: bool = False, verbose: bool = True):
     # adapted from: https://github.com/deepmind/alphafold
     from src.utils.amber import protein, relax
     
     test_config = {
-        "max_iterations": 1,
-        "tolerance": 2.39,
-        "stiffness": 10.0,
-        "exclude_residues": [],
-        "max_outer_iterations": 1,
-        "use_gpu": False
+        "max_iterations": RELAX_MAX_ITERATIONS,
+        "tolerance": RELAX_ENERGY_TOLERANCE,
+        "stiffness": RELAX_STIFFNESS,
+        "exclude_residues": RELAX_EXCLUDE_RESIDUES,
+        "max_outer_iterations": RELAX_MAX_OUTER_ITERATIONS,
+        "use_gpu": use_gpu
     }
 
     amber_relax = relax.AmberRelaxation(**test_config)
@@ -254,7 +260,7 @@ def amber_relax(input_pdb_filepath: str, output_pdb_filepath: str, verbose: bool
       with open(output_pdb_filepath, "w") as f:
         f.write(relaxed_pdb_str)
     except Exception as e:
-      log.warning(f"Due to an exception, skipping AMBER relaxation for PDB {input_pdb_filepath}...")
+      log.warning(f"Skipping AMBER relaxation for PDB {input_pdb_filepath} due to exception: {e}")
 
 
 def calculate_tmscore_metrics(pred_pdb_filepath: str, native_pdb_filepath: str, tmscore_exec_path: str) -> Dict[str, float]:
