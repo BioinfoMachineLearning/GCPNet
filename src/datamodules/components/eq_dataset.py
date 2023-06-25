@@ -180,16 +180,22 @@ def merge_pdb_chains_within_output_file(
 def generate_lddt_score(
     input_model_filepath: str,
     target_model_filepath: str,
-    lddt_exec_path: Optional[str] = None
+    lddt_exec_path: Optional[str] = None,
+    verbose: bool = True,
 ) -> np.ndarray:
     # note: if a path to an executable is not provided, it is assumed that lDDT has already been installed within e.g., the currently-activated Conda environment
     lddt_cmd = lddt_exec_path if lddt_exec_path is not None else "lddt"
     proc = subprocess.Popen([lddt_cmd, input_model_filepath, target_model_filepath], stdout=subprocess.PIPE)
     output = proc.stdout.read().decode("utf-8")
-    df = pd.read_csv(StringIO(output), sep="\t", skiprows=10)
-    score = df["Score"].to_numpy()
-    if score.dtype.name == "object":
-        score[score == "-"] = -1
+    try:
+        df = pd.read_csv(StringIO(output), sep="\t", skiprows=10)
+        score = df["Score"].to_numpy()
+        if score.dtype.name == "object":
+            score[score == "-"] = -1
+    except Exception as e:
+        if verbose:
+            log.error(f"Skipping calculation of lDDT score for {input_model_filepath} due to: {e}")
+        score = np.array([-1])
     score = score.astype(np.float32)
     return score
 

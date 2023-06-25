@@ -257,10 +257,13 @@ def amber_relax(input_pdb_filepath: str, output_pdb_filepath: str, use_gpu: bool
       relaxed_pdb_str, _, _ = amber_relax.process(prot=relaxed_prot)
       if verbose:
         log.info("`AmberRelaxation` has finished running!")
-      with open(output_pdb_filepath, "w") as f:
-        f.write(relaxed_pdb_str)
     except Exception as e:
       log.warning(f"Skipping AMBER relaxation for PDB {input_pdb_filepath} due to exception: {e}")
+      with open(input_pdb_filepath) as f:
+        relaxed_pdb_str = f.read()
+    with open(output_pdb_filepath, "w") as f:
+        f.write(relaxed_pdb_str)
+
 
 
 def calculate_tmscore_metrics(pred_pdb_filepath: str, native_pdb_filepath: str, tmscore_exec_path: str) -> Dict[str, float]:

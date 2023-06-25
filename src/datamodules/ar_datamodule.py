@@ -3,12 +3,12 @@
 # -------------------------------------------------------------------------------------------------------------------------------------
 
 import os
-from pytorch_lightning.utilities.types import EVAL_DATALOADERS
 import torch
 import torch_geometric
 import numpy as np
 import pytorch_lightning as pl
 
+from pathlib import Path
 from typing import List, Optional, Dict, Any
 
 from src.datamodules.components.ar_dataset import ARDataset
@@ -124,22 +124,22 @@ class ARDataModule(pl.LightningDataModule):
             max_tm_threshold=self.hparams.max_tmscore_metric_threshold
         )
         test_ar_pdbs = self.parse_split_pdbs(
-            self.hparams.af2_dir,
-            self.hparams.true_dir,
+            str(Path(self.hparams.af2_dir).parent / "AR_test_datasets" / "AF2_model_test"),
+            str(Path(self.hparams.true_dir).parent / "AR_test_datasets" / "true_model_test"),
             self.hparams.splits_dir,
             "test_ar.lst",
             max_tm_threshold=self.hparams.max_tmscore_metric_threshold
         )
         test_casp14_pdbs = self.parse_split_pdbs(
-            self.hparams.af2_dir,
-            self.hparams.true_dir,
+            str(Path(self.hparams.af2_dir).parent / "AR_test_datasets" / "AF2_model_casp14"),
+            str(Path(self.hparams.true_dir).parent / "AR_test_datasets" / "true_model_casp14"),
             self.hparams.splits_dir,
             "test_casp14.lst",
             max_tm_threshold=self.hparams.max_tmscore_metric_threshold
         )
         test_casp14_refinement_pdbs = self.parse_split_pdbs(
-            self.hparams.af2_dir,
-            self.hparams.true_dir,
+            str(Path(self.hparams.af2_dir).parent / "AR_test_datasets" / "AF2_model_casp14_refinement"),
+            str(Path(self.hparams.true_dir).parent / "AR_test_datasets" / "true_model_casp14_refinement"),
             self.hparams.splits_dir,
             "test_casp14_refinement.lst",
             max_tm_threshold=self.hparams.max_tmscore_metric_threshold
