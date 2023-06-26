@@ -28,11 +28,11 @@ patch_typeguard()  # use before @typechecked
 
 HALT_FILE_EXTENSION = "done"
 
-RELAX_MAX_ITERATIONS = 0
+RELAX_MAX_ITERATIONS = 1
 RELAX_ENERGY_TOLERANCE = 2.39
 RELAX_STIFFNESS = 10.0
 RELAX_EXCLUDE_RESIDUES = []
-RELAX_MAX_OUTER_ITERATIONS = 3
+RELAX_MAX_OUTER_ITERATIONS = 1
 
 
 log = utils.get_pylogger(__name__)
@@ -317,6 +317,9 @@ def calculate_molprobity_metrics(pdb_filepath: str, molprobity_exec_path: str) -
     lines = stdout.decode("ascii").splitlines()
     metric_names = [item for item in lines[1].strip().split(":")]
     metric_values = [np.nan if item == "" else item for item in lines[2].strip().split(":")]
+    if len(metric_names) != len(metric_values):
+        # note: for backbone-only PDB inputs, parsing an alternative line for results may be required
+        metric_values = [np.nan if item == "" else item for item in lines[4].strip().split(":")]
     assert len(metric_names) == len(metric_values), "Number of column names must match number of column values within MolProbity's output."
 
     metrics = {

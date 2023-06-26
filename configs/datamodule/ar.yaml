@@ -13,6 +13,7 @@ python_exec_path:  # note: providing a value for `python_exec_path` is required 
 pdbtools_dir:  # note: leaving `pdbtools_dir` as null will have the `ARDataset` run `pdb-tools` CLI-directly
 force_process_data: false
 load_only_unprocessed_examples: false
+subset_to_backbone_atoms_only: false  # note: set to `true` to convert a model into its `*_backbone` equivalent
 batch_size: 1
 num_workers: 4
 pin_memory: false

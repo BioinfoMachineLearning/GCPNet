@@ -39,6 +39,7 @@ class ARDataModule(pl.LightningDataModule):
             pdbtools_dir: Optional[str] = None,
             force_process_data: bool = False,
             load_only_unprocessed_examples: bool = False,
+            subset_to_backbone_atoms_only: bool = False,
             batch_size: int = 1,
             num_workers: int = 0,
             pin_memory: bool = True,
@@ -165,6 +166,7 @@ class ARDataModule(pl.LightningDataModule):
             pdbtools_dir=self.hparams.pdbtools_dir,
             force_process_data=self.hparams.force_process_data,
             load_only_unprocessed_examples=self.hparams.load_only_unprocessed_examples,
+            subset_to_backbone_atoms_only=self.hparams.subset_to_backbone_atoms_only,
             is_test_dataset=False
         )
         self.val_set = ARDataset(
@@ -180,6 +182,7 @@ class ARDataModule(pl.LightningDataModule):
             pdbtools_dir=self.hparams.pdbtools_dir,
             force_process_data=self.hparams.force_process_data,
             load_only_unprocessed_examples=self.hparams.load_only_unprocessed_examples,
+            subset_to_backbone_atoms_only=self.hparams.subset_to_backbone_atoms_only,
             is_test_dataset=False
         )
         self.test_ar_set = ARDataset(
@@ -195,6 +198,7 @@ class ARDataModule(pl.LightningDataModule):
             pdbtools_dir=self.hparams.pdbtools_dir,
             force_process_data=self.hparams.force_process_data,
             load_only_unprocessed_examples=self.hparams.load_only_unprocessed_examples,
+            subset_to_backbone_atoms_only=self.hparams.subset_to_backbone_atoms_only,
             is_test_dataset=True
         )
         self.test_casp14_set = ARDataset(
@@ -210,6 +214,7 @@ class ARDataModule(pl.LightningDataModule):
             pdbtools_dir=self.hparams.pdbtools_dir,
             force_process_data=self.hparams.force_process_data,
             load_only_unprocessed_examples=self.hparams.load_only_unprocessed_examples,
+            subset_to_backbone_atoms_only=self.hparams.subset_to_backbone_atoms_only,
             is_test_dataset=True
         )
         self.test_casp14_refinement_set = ARDataset(
@@ -225,6 +230,7 @@ class ARDataModule(pl.LightningDataModule):
             pdbtools_dir=self.hparams.pdbtools_dir,
             force_process_data=self.hparams.force_process_data,
             load_only_unprocessed_examples=self.hparams.load_only_unprocessed_examples,
+            subset_to_backbone_atoms_only=self.hparams.subset_to_backbone_atoms_only,
             is_test_dataset=True
         )
         self.predict_set = ARDataset(
@@ -240,6 +246,7 @@ class ARDataModule(pl.LightningDataModule):
             pdbtools_dir=self.hparams.pdbtools_dir,
             force_process_data=self.hparams.force_process_data,
             load_only_unprocessed_examples=self.hparams.load_only_unprocessed_examples,
+            subset_to_backbone_atoms_only=self.hparams.subset_to_backbone_atoms_only,
             is_test_dataset=True
         )
 

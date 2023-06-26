@@ -6,6 +6,7 @@ import os
 import random
 import subprocess
 import torch
+import torch_geometric
 
 import numpy as np
 
@@ -30,6 +31,7 @@ log = get_pylogger(__name__)
 
 
 SEQUENCE_CROP_LENGTH = 250  # note: a cropping constant used through the AR dataset
+BACKBONE_ATOMS = ["N", "CA", "C"]  # note: corresponds to each residue's `N`, `Ca`, and `C` atoms
 
 
 @typechecked
@@ -81,7 +83,8 @@ class ARDataset(Dataset):
         pdbtools_dir: Optional[str] = None,
         force_process_data: bool = False,
         load_only_unprocessed_examples: bool = False,
-        is_test_dataset: bool = False
+        subset_to_backbone_atoms_only: bool = False,
+        is_test_dataset: bool = False,
     ):
         self.initial_pdbs = initial_pdbs
         self.model_data_cache_dir = model_data_cache_dir
@@ -95,6 +98,7 @@ class ARDataset(Dataset):
         self.pdbtools_dir = pdbtools_dir
         self.force_process_data = force_process_data
         self.load_only_unprocessed_examples = load_only_unprocessed_examples
+        self.subset_to_backbone_atoms_only = subset_to_backbone_atoms_only
         self.is_test_dataset = is_test_dataset
         self.num_pdbs = len(self.initial_pdbs)
 
@@ -222,6 +226,47 @@ class ARDataset(Dataset):
         )
 
         return standardized_data
+    
+    @staticmethod
+    @typechecked
+    def subset_data_to_backbone_atoms_only(data: Data, rbf_edge_dist_cutoff: float, num_rbf: int) -> Data:
+        # reduce the nodes (and edges) in `data` to only the backbone atoms available for each residue type (i.e., N, Ca, and C atoms)
+        node_index = 0
+        nodes_to_keep = []
+        residue_to_atom_names_mapping_ = data.residue_to_atom_names_mapping[0]
+        for res in residue_to_atom_names_mapping_:
+            res_atoms = residue_to_atom_names_mapping_[res]
+            assert res_atoms[:len(BACKBONE_ATOMS)] == BACKBONE_ATOMS, "Backbone atom ordering must be consistent to subset to backbone atoms."
+            for atom in res_atoms:
+                if atom in BACKBONE_ATOMS:
+                    nodes_to_keep.append(node_index)
+                node_index += 1
+            data.residue_to_atom_names_mapping[0][res] = BACKBONE_ATOMS  # update mapping between residue and (now) backbone atom names
+        # subset nodes
+        nodes_to_keep_idx = torch.tensor(nodes_to_keep, dtype=torch.long)
+        nodes_to_keep_mask = torch.zeros(data.num_nodes, dtype=torch.bool)
+        nodes_to_keep_mask[nodes_to_keep_idx] = 1
+        data.x = data.x[nodes_to_keep_mask]
+        data.h = data.h[nodes_to_keep_mask]
+        data.chi = _node_features(data.x)  # note: `chi` relies on the sequence of atoms, so it must be recomputed
+        data.label = data.label[nodes_to_keep_mask]
+        data.num_atoms_per_residue = torch.tensor([len(BACKBONE_ATOMS) for _ in range(data.ca_x.shape[0])], dtype=torch.long)
+        # subset edges
+        data.edge_index, _, edge_index_mask = torch_geometric.utils.subgraph(
+            subset=nodes_to_keep_idx,
+            edge_index=data.edge_index,
+            relabel_nodes=True,
+            return_edge_mask=True
+        )
+        initial_node_pair_feats = data.e[:, :data.e.shape[-1] - num_rbf][edge_index_mask]
+        data.e, data.xi = _edge_features(
+            data.x,
+            data.edge_index,
+            scalar_edge_feats=initial_node_pair_feats,
+            D_max=rbf_edge_dist_cutoff,
+            num_rbf=num_rbf
+        )
+        return data
     
     @staticmethod
     @typechecked
@@ -408,6 +453,8 @@ class ARDataset(Dataset):
 
         # finalize graph features according to current graph topology and model specifications
         data = self.finalize_graph_features_within_data(data, rbf_edge_dist_cutoff=self.rbf_edge_dist_cutoff, num_rbf=self.num_rbf)
+        if self.subset_to_backbone_atoms_only:
+            data = self.subset_data_to_backbone_atoms_only(data, rbf_edge_dist_cutoff=self.rbf_edge_dist_cutoff, num_rbf=self.num_rbf)
         return data
 
     @typechecked
