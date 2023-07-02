@@ -2,6 +2,7 @@
 # Following code curated for GCPNet (https://github.com/BioinfoMachineLearning/GCPNet):
 # -------------------------------------------------------------------------------------------------------------------------------------
 
+import copy
 import os
 import random
 import subprocess
@@ -10,6 +11,7 @@ import torch_geometric
 
 import numpy as np
 
+from collections import defaultdict
 from pathlib import Path
 from torch.utils.data import Dataset
 from torch_geometric.data import Data
@@ -30,7 +32,11 @@ patch_typeguard()  # use before @typechecked
 log = get_pylogger(__name__)
 
 
-SEQUENCE_CROP_LENGTH = 250  # note: a cropping constant used through the AR dataset
+TRAINING_SEQUENCE_CROP_LENGTH = 250  # note: a cropping constant used within the AR training dataset
+INFERENCE_SEQUENCE_CROP_LENGTH = 1500  # note: a cropping constant used within the AR inference dataset
+INFERENCE_SEQUENCE_CROP_WINDOW_LENGTH = 900  # note: a cropping constant used within the AR inference dataset
+INFERENCE_SEQUENCE_CROP_SHIFT_LENGTH = 850  # note: a cropping constant used within the AR inference dataset
+INFERENCE_SEQUENCE_CROP_OVERLAP_LENGTH = INFERENCE_SEQUENCE_CROP_WINDOW_LENGTH - INFERENCE_SEQUENCE_CROP_SHIFT_LENGTH  # note: a cropping constant used within the AR inference dataset
 BACKBONE_ATOMS = ["N", "CA", "C"]  # note: corresponds to each residue's `N`, `Ca`, and `C` atoms
 
 
@@ -270,6 +276,60 @@ class ARDataset(Dataset):
     
     @staticmethod
     @typechecked
+    def crop_inference_data(
+        data: Data,
+        sequence_crop_window_length: int = INFERENCE_SEQUENCE_CROP_WINDOW_LENGTH,
+        sequence_crop_shift_length: int = INFERENCE_SEQUENCE_CROP_SHIFT_LENGTH,
+    ) -> List[Data]:
+        data_list = []
+        input_sequence_length = len(data.ca_x)
+        sequence_crops = np.arange(0, input_sequence_length - sequence_crop_window_length + sequence_crop_shift_length, sequence_crop_shift_length)
+        for i in range(len(sequence_crops)):
+            # maintain an overlap of e.g., 50 residues between all crops to maintain structural context
+            start_residue_index = sequence_crops[i]
+            end_residue_index = min(sequence_crops[i] + sequence_crop_window_length, input_sequence_length)
+            start_atom_index = data.num_atoms_per_residue[:start_residue_index].sum().item()
+            end_atom_index = data.num_atoms_per_residue[:end_residue_index].sum().item()
+            current_datum = copy.deepcopy(data)
+            residues_to_keep = torch.arange(start_residue_index, end_residue_index, device=data.x.device)
+            atoms_to_keep = torch.arange(start_atom_index, end_atom_index, device=data.x.device)
+            current_datum.x = current_datum.x[atoms_to_keep]
+            current_datum.h = current_datum.h[atoms_to_keep]
+            current_datum.chi = current_datum.chi[atoms_to_keep]
+            current_datum.ca_x = current_datum.ca_x[residues_to_keep]
+            current_datum.label = current_datum.label[atoms_to_keep]
+            current_datum.num_atoms_per_residue = current_datum.num_atoms_per_residue[residues_to_keep]
+            residue_to_atom_names_keys = np.array(list(current_datum.residue_to_atom_names_mapping[0]))[residues_to_keep.numpy()]
+            current_datum.residue_to_atom_names_mapping[0] = defaultdict(
+                list,
+                {key: current_datum.residue_to_atom_names_mapping[0][key] for key in residue_to_atom_names_keys}
+            )
+            current_datum.edge_index, _, edge_index_mask = torch_geometric.utils.subgraph(
+                subset=atoms_to_keep,
+                edge_index=current_datum.edge_index,
+                relabel_nodes=True,
+                return_edge_mask=True
+            )
+            current_datum.e = current_datum.e[edge_index_mask]
+            current_datum.xi = current_datum.xi[edge_index_mask]
+            # keep track of where to find the non-overlapping residue sequence region
+            current_datum.overlap_true_start_residue_index = (
+                INFERENCE_SEQUENCE_CROP_OVERLAP_LENGTH
+                if 0 < i < len(sequence_crops)
+                else 0
+            )
+            current_datum.overlap_true_end_residue_index = (
+                len(current_datum.ca_x)
+                if 0 < i < len(sequence_crops)
+                else len(current_datum.ca_x)
+            )
+            current_datum.overlap_true_start_atom_index = current_datum.num_atoms_per_residue[:current_datum.overlap_true_start_residue_index].sum().item()
+            current_datum.overlap_true_end_atom_index = current_datum.num_atoms_per_residue[:current_datum.overlap_true_end_residue_index].sum().item()
+            data_list.append(current_datum)
+        return data_list
+    
+    @staticmethod
+    @typechecked
     def crop_pdb_file(
         input_pdb_filepath: str,
         output_pdb_filepath: str,
@@ -277,7 +337,7 @@ class ARDataset(Dataset):
         full_sequence_length: int,
         new_pdb_chain_id: str = "A",
         new_start_index: int = 1,
-        sequence_crop_length: int = SEQUENCE_CROP_LENGTH,
+        sequence_crop_length: int = TRAINING_SEQUENCE_CROP_LENGTH,
         sequence_range: Optional[Tuple[int, int]] = None,
         python_exec_path: Optional[str] = None,
         pdbtools_dir: Optional[str] = None
@@ -313,7 +373,7 @@ class ARDataset(Dataset):
         return (start_index, end_index)
     
     @typechecked
-    def _get_data(self, idx: int) -> Data:
+    def _get_data(self, idx: int) -> Union[Data, List[Data]]:
         initial_pdb_filepath = self.initial_pdbs[idx]["initial_pdb"]
         initial_pdb_is_cropped = "_" in Path(initial_pdb_filepath).stem
         initial_data_filepath = Path(self.model_data_cache_dir) / Path(Path(initial_pdb_filepath).stem + ".pt")
@@ -335,7 +395,7 @@ class ARDataset(Dataset):
                 true_pdb_filepath = self.initial_pdbs[idx]["true_pdb"]
             true_pdb_is_cropped = "_" in Path(true_pdb_filepath).stem
 
-            # handle sequence cropping of input PDB files (up to a length of `SEQUENCE_CROP_LENGTH=250`)
+            # handle sequence cropping of input PDB files (e.g., up to a length of `TRAINING_SEQUENCE_CROP_LENGTH=250`)
             cropped_sequence = None
             if initial_pdb_is_cropped:
                 assert true_pdb_is_cropped, "Both initial and true PDB files must be cropped in accordance with one another."
@@ -349,7 +409,7 @@ class ARDataset(Dataset):
                     output_pdb_filepath=initial_pdb_filepath,
                     crop_index=crop_index,
                     full_sequence_length=seq_len,
-                    sequence_crop_length=SEQUENCE_CROP_LENGTH,
+                    sequence_crop_length=TRAINING_SEQUENCE_CROP_LENGTH,
                     python_exec_path=self.python_exec_path,
                     pdbtools_dir=self.pdbtools_dir
                 )
@@ -358,7 +418,7 @@ class ARDataset(Dataset):
                     output_pdb_filepath=true_pdb_filepath,
                     crop_index=crop_index,
                     full_sequence_length=seq_len,
-                    sequence_crop_length=SEQUENCE_CROP_LENGTH,
+                    sequence_crop_length=TRAINING_SEQUENCE_CROP_LENGTH,
                     sequence_range=sequence_range,
                     python_exec_path=self.python_exec_path,
                     pdbtools_dir=self.pdbtools_dir
@@ -455,10 +515,12 @@ class ARDataset(Dataset):
         data = self.finalize_graph_features_within_data(data, rbf_edge_dist_cutoff=self.rbf_edge_dist_cutoff, num_rbf=self.num_rbf)
         if self.subset_to_backbone_atoms_only:
             data = self.subset_data_to_backbone_atoms_only(data, rbf_edge_dist_cutoff=self.rbf_edge_dist_cutoff, num_rbf=self.num_rbf)
+        if self.is_test_dataset and len(data.ca_x) >= INFERENCE_SEQUENCE_CROP_LENGTH:
+            data = self.crop_inference_data(data)
         return data
 
     @typechecked
-    def __getitem__(self, idx: int, retrieval_time_limit_in_seconds: int = 1000) -> Data:
+    def __getitem__(self, idx: int, retrieval_time_limit_in_seconds: int = 1000) -> Union[Data, List[Data]]:
         if self.load_only_unprocessed_examples:
             try:
                 with time_limit(retrieval_time_limit_in_seconds):

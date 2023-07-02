@@ -12,6 +12,7 @@ import wandb
 import pandas as pd
 import torch.nn as nn
 
+from collections import defaultdict
 from datetime import datetime
 from omegaconf import DictConfig
 from pathlib import Path
@@ -166,11 +167,24 @@ class GCPNetARLitModule(LightningModule):
 
         return batch, batch_x_pred
 
-    def step(self, batch: Batch) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def step(self, batch: Union[Batch, List[Batch]]) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         # make a forward pass and score it
-        labels = self.get_labels(batch)
-        _, preds = self.forward(batch)
-        loss = torch.sqrt(self.criterion(preds, labels) / batch.num_nodes)  # note: node-normalize manually since `reduction=sum`
+        if isinstance(batch, list):
+            # assemble individual batch inputs (and outputs)
+            labels_list, preds_list = [], []
+            for batch_ in batch:
+                labels_ = self.get_labels(batch_)[batch_.overlap_true_start_atom_index:batch_.overlap_true_end_atom_index]
+                preds_ = self.forward(batch_)[-1][batch_.overlap_true_start_atom_index:batch_.overlap_true_end_atom_index]
+                labels_list.append(labels_)
+                preds_list.append(preds_)
+            labels = torch.cat(labels_list, dim=0)
+            preds = torch.cat(preds_list, dim=0)
+            num_nodes = len(labels)
+        else:
+            labels = self.get_labels(batch)
+            _, preds = self.forward(batch)
+            num_nodes = batch.num_nodes
+        loss = torch.sqrt(self.criterion(preds, labels) / num_nodes)  # note: node-normalize manually since `reduction=sum`
         return loss, preds, labels
     
     def on_train_start(self):
@@ -235,11 +249,50 @@ class GCPNetARLitModule(LightningModule):
         if not getattr(self, "refinement_output_dir", None):
             self.refinement_output_dir = Path(self.trainer.default_root_dir)
 
-    def test_step(self, batch: Batch, batch_idx: int, dataloader_idx: int):
-        loss, preds, labels = self.step(batch)
+    @typechecked
+    def combine_individual_batch_inputs(self, batch: List[Batch]) -> Batch:
+        for batch_ in batch:
+            batch_.x = batch_.x[batch_.overlap_true_start_atom_index:batch_.overlap_true_end_atom_index]
+            batch_.ca_x = batch_.ca_x[batch_.overlap_true_start_residue_index:batch_.overlap_true_end_residue_index]
+            batch_.label = batch_.label[batch_.overlap_true_start_atom_index:batch_.overlap_true_end_atom_index] if hasattr(batch_, "label") else []
+            batch_.num_atoms_per_residue = batch_.num_atoms_per_residue[batch_.overlap_true_start_residue_index:batch_.overlap_true_end_residue_index]
+            batch_.batch = batch_.batch[batch_.overlap_true_start_atom_index:batch_.overlap_true_end_atom_index]
+            residue_to_atom_names_keys = list(batch_.residue_to_atom_names_mapping[0][0])[batch_.overlap_true_start_residue_index:batch_.overlap_true_end_residue_index]
+            batch_.residue_to_atom_names_mapping[0] = defaultdict(
+                list,
+                {key: batch_.residue_to_atom_names_mapping[0][0][key] for key in residue_to_atom_names_keys}
+            )
+        combined_batch = Batch.from_data_list(batch)
+        combined_batch.batch[:] = combined_batch.batch.unique()[0]
+        combined_batch.residue_to_atom_names_mapping = [[
+            defaultdict(
+                list,
+                {k: v for d in combined_batch.residue_to_atom_names_mapping for k, v in d[0].items()}
+            )
+        ]]
+        combined_batch.initial_pdb_filepath = combined_batch.initial_pdb_filepath[0]
+        combined_batch.true_pdb_filepath = combined_batch.true_pdb_filepath[0] if hasattr(combined_batch, "true_pdb_filepath") else None
+        combined_batch._num_nodes = len(combined_batch.x)
+        combined_batch._num_graphs = 1
+        return combined_batch
+
+    @typechecked
+    def test_step(self, batch: Union[Batch, List[Batch]], batch_idx: int, dataloader_idx: int = 0):
+        try:
+            loss, preds, labels = self.step(batch)
+        except RuntimeError as e:
+            if "CUDA out of memory" not in str(e):
+                raise(e)
+            torch.cuda.empty_cache()
+            log.info(f"Skipping test batch with index {batch_idx} due to OOM error...")
+            return
 
         # update metric(s)
         self.test_loss(loss.detach())
+
+        # as necessary, combine individual batch inputs into a single object
+        if isinstance(batch, list):
+            batch = self.combine_individual_batch_inputs(batch)
 
         # score using external refinement metrics
         refinement_metrics = self.score_refinement_preds(batch, preds, labels)
@@ -378,8 +431,16 @@ class GCPNetARLitModule(LightningModule):
     
     @torch.inference_mode()
     @typechecked
-    def predict_step(self, batch: Batch, batch_idx: int, dataloader_idx: int = 0):
-        _, preds = self.forward(batch)
+    def predict_step(self, batch: Union[Batch, List[Batch]], batch_idx: int, dataloader_idx: int = 0):
+        if isinstance(batch, list):
+            preds = torch.cat([self.forward(batch_)[-1] for batch_ in batch], dim=0)
+        else:
+            _, preds = self.forward(batch)
+    
+        # as necessary, combine individual batch inputs into a single object
+        if isinstance(batch, list):
+            batch = self.combine_individual_batch_inputs(batch)
+
         step_outputs = self.record_refinement_preds(batch, preds)
         return step_outputs
     
