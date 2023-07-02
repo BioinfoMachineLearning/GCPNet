@@ -34,6 +34,8 @@ patch_typeguard()  # use before @typechecked
 
 log = utils.get_pylogger(__name__)
 
+NON_INITIAL_METRICS = ["improvement_score"]
+
 
 class GCPNetARLitModule(LightningModule):
     """LightningModule for atomic refinement (AR) of protein structures using GCPNet.
@@ -116,11 +118,16 @@ class GCPNetARLitModule(LightningModule):
             "TM-score", "MaxSub", "clash_score",
             "rotamer_outliers", "ramachandran_outliers"
         ]
-        self.all_refinement_test_metrics = [
-            metric_name if metric_name in ["improvement_score"] else f"{prefix}_{metric_name}"
-            for metric_name in refinement_test_metrics
-            for prefix in ["init", "pred", "relaxed_pred"]
-        ]
+        self.all_refinement_test_metrics = []
+        for metric_name in refinement_test_metrics:
+            if metric_name in NON_INITIAL_METRICS:
+                self.all_refinement_test_metrics.extend([
+                    f"{prefix}_{metric_name}" for prefix in ["pred", "relaxed_pred"]
+                ])
+            else:
+                self.all_refinement_test_metrics.extend([
+                    f"{prefix}_{metric_name}" for prefix in ["init", "pred", "relaxed_pred"]
+                ])
 
     @staticmethod
     def get_labels(batch) -> Any:
@@ -314,6 +321,7 @@ class GCPNetARLitModule(LightningModule):
         )
         refinement_metrics_df = pd.DataFrame(refinement_metrics_list)
         refinement_metrics_df.to_csv(refinement_metrics_csv_path, index=False)
+        log.info(f"Saved refinement results CSV to {refinement_metrics_csv_path}")
 
         refinement_logs = {
             f"{self.test_phase}/{metric_name}": refinement_metrics_df[f"{self.test_phase}/{metric_name}"].mean()
@@ -348,7 +356,10 @@ class GCPNetARLitModule(LightningModule):
                 refinement_table.add_data(*row_metrics)
             refinement_logs[f"{self.test_phase}/refinement_metrics"] = refinement_table
 
-            wandb_run.log(refinement_logs)
+            try:
+                wandb_run.log(refinement_logs)
+            except Exception as e:
+                log.warning(f"Failed to log additional evaluation metadata due to: {e}")
 
         # also log sampling metrics directly
         for metric_name in self.all_refinement_test_metrics:

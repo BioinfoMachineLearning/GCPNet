@@ -320,6 +320,9 @@ def calculate_molprobity_metrics(pdb_filepath: str, molprobity_exec_path: str) -
     if len(metric_names) != len(metric_values):
         # note: for backbone-only PDB inputs, parsing an alternative line for results may be required
         metric_values = [np.nan if item == "" else item for item in lines[4].strip().split(":")]
+        if len(metric_names) != len(metric_values):
+            # note: on some computing platforms, MolProbity may yield its output on the last line of standard output
+            metric_values = [np.nan if item == "" else item for item in lines[-1].strip().split(":")]
     assert len(metric_names) == len(metric_values), "Number of column names must match number of column values within MolProbity's output."
 
     metrics = {

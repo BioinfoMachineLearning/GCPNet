@@ -77,7 +77,7 @@ g++ -static -O3 -ffast-math -lm -o TMscore TMscore.cpp
 rm TMscore.cpp
 
 # download and compile MolProbity
-# note: beforehand, make sure `svn` is installed locally using e.g., `apt install subversion` or `yum install subversion`
+# note: beforehand, if not already installed within the `gcpnet` environment by `mamba`, make sure `svn` is installed locally using e.g., `apt install subversion` or `yum install subversion`
 mkdir -p ~/Programs/MolProbity && cd ~/Programs/MolProbity
 wget https://raw.githubusercontent.com/rlabduke/MolProbity/master/install_via_bootstrap.sh
 conda activate gcpnet  # ensure the `gcpnet` Conda environment is activated for installation
@@ -424,11 +424,11 @@ python3 src/predict.py model=gcpnet_eq datamodule=eq datamodule.predict_input_di
 Predict a refined structure for a protein structure decoy
 
 ```bash
-ar_model_ckpt_path="checkpoints/AR/model_1_epoch_N.ckpt"
+ar_model_ckpt_path="checkpoints/AR/model_1_epoch_23.ckpt"
 predict_batch_size=1  # adjust as desired according to available GPU memory
 num_workers=0  # note: required when initially processing new PDB file inputs, due to ESM's GPU usage
 
-python3 src/predict.py model=gcpnet_eq datamodule=eq datamodule.predict_input_dir=$MY_INPUT_PDB_DIR datamodule.predict_true_dir=$MY_OPTIONAL_TRUE_PDB_DIR datamodule.predict_output_dir=$MY_OUTPUTS_DIR datamodule.predict_batch_size=$predict_batch_size datamodule.num_workers=$num_workers logger=csv trainer.accelerator=gpu trainer.devices=1 ckpt_path="$ar_model_ckpt_path"
+python3 src/predict.py model=gcpnet_ar datamodule=ar datamodule.predict_input_dir=$MY_INPUT_PDB_DIR datamodule.predict_true_dir=$MY_OPTIONAL_TRUE_PDB_DIR datamodule.predict_output_dir=$MY_OUTPUTS_DIR datamodule.predict_batch_size=$predict_batch_size datamodule.num_workers=$num_workers logger=csv trainer.accelerator=gpu trainer.devices=1 ckpt_path="$ar_model_ckpt_path"
 ```
 
 ## Acknowledgements
