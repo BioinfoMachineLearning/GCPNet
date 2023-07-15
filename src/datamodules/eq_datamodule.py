@@ -31,6 +31,7 @@ class EQDataModule(pl.LightningDataModule):
             python_exec_path: Optional[str] = None,
             lddt_exec_path: Optional[str] = None,
             pdbtools_dir: Optional[str] = None,
+            subset_to_ca_atoms_only: bool = False,
             batch_size: int = 1,
             num_workers: int = 0,
             pin_memory: bool = True,
@@ -130,7 +131,8 @@ class EQDataModule(pl.LightningDataModule):
             esm_batch_converter=getattr(self, "esm_batch_converter", None),
             python_exec_path=self.hparams.python_exec_path,
             lddt_exec_path=self.hparams.lddt_exec_path,
-            pdbtools_dir=self.hparams.pdbtools_dir
+            pdbtools_dir=self.hparams.pdbtools_dir,
+            subset_to_ca_atoms_only=self.hparams.subset_to_ca_atoms_only,
         )
         self.val_set = EQDataset(
             decoy_pdbs=valid_pdbs,
@@ -143,7 +145,8 @@ class EQDataModule(pl.LightningDataModule):
             esm_batch_converter=getattr(self, "esm_batch_converter", None),
             python_exec_path=self.hparams.python_exec_path,
             lddt_exec_path=self.hparams.lddt_exec_path,
-            pdbtools_dir=self.hparams.pdbtools_dir
+            pdbtools_dir=self.hparams.pdbtools_dir,
+            subset_to_ca_atoms_only=self.hparams.subset_to_ca_atoms_only,
         )
         self.test_set = EQDataset(
             decoy_pdbs=test_pdbs,
@@ -156,7 +159,8 @@ class EQDataModule(pl.LightningDataModule):
             esm_batch_converter=getattr(self, "esm_batch_converter", None),
             python_exec_path=self.hparams.python_exec_path,
             lddt_exec_path=self.hparams.lddt_exec_path,
-            pdbtools_dir=self.hparams.pdbtools_dir
+            pdbtools_dir=self.hparams.pdbtools_dir,
+            subset_to_ca_atoms_only=self.hparams.subset_to_ca_atoms_only,
         )
         self.predict_set = EQDataset(
             decoy_pdbs=predict_pdbs,
@@ -169,7 +173,8 @@ class EQDataModule(pl.LightningDataModule):
             esm_batch_converter=getattr(self, "esm_batch_converter", None),
             python_exec_path=self.hparams.python_exec_path,
             lddt_exec_path=self.hparams.lddt_exec_path,
-            pdbtools_dir=self.hparams.pdbtools_dir
+            pdbtools_dir=self.hparams.pdbtools_dir,
+            subset_to_ca_atoms_only=self.hparams.subset_to_ca_atoms_only,
         )
 
     @typechecked

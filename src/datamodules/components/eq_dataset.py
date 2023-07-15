@@ -130,23 +130,6 @@ def _node_features(
 
 
 @typechecked
-def batched_gather(data: torch.Tensor, inds: torch.Tensor, dim: int = 0, no_batch_dims: int = 0) -> torch.Tensor:
-    # from: https://github.com/aqlaboratory/openfold
-    ranges = []
-    for i, s in enumerate(data.shape[:no_batch_dims]):
-        r = torch.arange(s)
-        r = r.view(*(*((1,) * i), -1, *((1,) * (len(inds.shape) - i - 1))))
-        ranges.append(r)
-
-    remaining_dims = [
-        slice(None) for _ in range(len(data.shape) - no_batch_dims)
-    ]
-    remaining_dims[dim - no_batch_dims if dim >= 0 else dim] = inds
-    ranges.extend(remaining_dims)
-    return data[ranges]
-
-
-@typechecked
 def merge_pdb_chains_within_output_file(
     input_pdb_filepath,
     output_pdb_filepath,
@@ -213,7 +196,8 @@ class EQDataset(Dataset):
         esm_batch_converter: Optional[Any] = None,
         python_exec_path: Optional[str] = None,
         lddt_exec_path: Optional[str] = None,
-        pdbtools_dir: Optional[str] = None
+        pdbtools_dir: Optional[str] = None,
+        subset_to_ca_atoms_only: bool = False,
     ):
         self.decoy_pdbs = decoy_pdbs
         self.model_data_cache_dir = model_data_cache_dir
@@ -226,6 +210,7 @@ class EQDataset(Dataset):
         self.python_exec_path = python_exec_path
         self.lddt_exec_path = lddt_exec_path
         self.pdbtools_dir = pdbtools_dir
+        self.subset_to_ca_atoms_only = subset_to_ca_atoms_only
         self.num_pdbs = len(self.decoy_pdbs)
 
         os.makedirs(self.model_data_cache_dir, exist_ok=True)
@@ -508,11 +493,53 @@ class EQDataset(Dataset):
             edge_index=edge_index,
             mask=data.mask,
             atom_types=data.atom_types,
+            atom_chain_indices=data.atom_chain_indices,
             atom_residue_idx=data.atom_residue_idx,
             ca_atom_idx=data.ca_atom_idx
         )
 
         return standardized_data
+    
+    @staticmethod
+    @typechecked
+    def subset_data_to_ca_atoms_only(
+        data: Data,
+        edge_cutoff: float = 8.0,
+        max_neighbors: int = 128,
+        rbf_edge_dist_cutoff: float = 8.0,
+        num_rbf: int = 16
+    ) -> Data:
+        # reduce the nodes (and edges) in `data` to only the Ca atoms available for each residue
+        nodes_to_keep_idx = data.ca_atom_idx
+        nodes_to_keep_mask = torch.zeros(data.num_nodes, dtype=torch.bool)
+        nodes_to_keep_mask[nodes_to_keep_idx] = 1
+        data.x = data.x[nodes_to_keep_mask]
+        data.h = data.h[nodes_to_keep_mask]
+        data.mask = data.mask[nodes_to_keep_mask]
+        data.atom_types = data.atom_types[nodes_to_keep_mask]
+        data.atom_chain_indices = data.atom_chain_indices[nodes_to_keep_mask]
+        data.chi = _node_features(data.x)  # note: `chi` relies on the sequence of atoms, so it must be recomputed
+        data.atom_residue_idx = torch.arange(0, len(data.ca_atom_idx), device=data.ca_atom_idx.device, dtype=torch.long)
+        data.ca_atom_idx = data.atom_residue_idx
+        # redesign graph topology using Ca atom positions
+        data.edge_index = torch_cluster.radius_graph(data.x, r=edge_cutoff, max_num_neighbors=max_neighbors)
+        edge_chain_encodings = (
+            # note: atom pairs from the same chain are assigned a value of 1.0; all others are assigned 0.0
+            data.atom_chain_indices[data.edge_index[0]] == data.atom_chain_indices[data.edge_index[1]]
+        ).float().unsqueeze(-1)
+        edge_ca_atom_encodings = (
+            # note: atom pairs from the same residue are assigned a value of 1.0; all others are assigned 0.0
+            data.atom_residue_idx[data.edge_index[0]] == data.atom_residue_idx[data.edge_index[1]]
+        ).float().unsqueeze(-1)
+        edge_encodings = torch.cat((edge_chain_encodings, edge_ca_atom_encodings), dim=-1)
+        data.e, data.xi = _edge_features(
+            data.x,
+            data.edge_index,
+            scalar_edge_feats=edge_encodings,
+            D_max=rbf_edge_dist_cutoff,
+            num_rbf=num_rbf
+        )
+        return data
 
     @typechecked
     def _featurize_as_graph(
@@ -560,8 +587,12 @@ class EQDataset(Dataset):
             edge_cutoff=self.edge_cutoff,
             max_neighbors=self.max_neighbors,
             rbf_edge_dist_cutoff=self.rbf_edge_dist_cutoff,
-            num_rbf=self.num_rbf
+            num_rbf=self.num_rbf,
         )
+        if self.subset_to_ca_atoms_only:
+            data = self.subset_data_to_ca_atoms_only(
+                data, num_rbf=self.num_rbf,
+            )
         data["decoy_pdb_filepath"] = str(decoy_pdb_path)
         data["true_pdb_filepath"] = None if true_pdb_path is None else str(true_pdb_path)
 
