@@ -68,7 +68,7 @@ navigating to https://figshare.com/s/e23be65a884ce7fc8543 and downloading the th
 
 **Note**: The ATOM3D datasets (i.e., the LBA and PSR datasets) as well as the CATH dataset we use will automatically be downloaded during execution of `src/train.py` or `src/eval.py` if they have not already been downloaded. However, data for the NMS and RS tasks must be downloaded manually.
 
-**Another Note**: TM-score and MolProbity are required to score predicted protein structures, where one can install them as follows:
+**Another Note**: TM-score and MolProbity are required to score protein structures, where one can install them as follows:
 ```bash
 # download and compile TM-score
 mkdir -p ~/Programs && cd ~/Programs
