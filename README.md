@@ -134,18 +134,6 @@ Train a model for the computational protein design (**CPD**) task
 python3 src/train.py experiment=gcpnet_cpd.yaml
 ```
 
-Train a model for the protein structure equivariant quality assessment (**EQ**) task (A.K.A. protein structure accuracy estimation - PSAE)
-
-```bash
-python3 src/train.py experiment=gcpnet_eq.yaml
-```
-
-Train a model for the protein structure atomic refinement (**AR**) task
-
-```bash
-python3 src/train.py experiment=gcpnet_ar.yaml
-```
-
 **Note**: You can override any parameter from command line like this
 
 ```bash
@@ -338,7 +326,24 @@ CPD Model
 └──────────────────────────────┴──────────────────────────────┴──────────────────────────────┴──────────────────────────────┘
 ```
 
-Reproduce our results for the EQ task
+## GCPNet-EMA
+Download training and evaluation data
+
+```bash
+cd data/EQ/
+wget https://zenodo.org/record/8150859/files/ema_decoy_model.tar.gz
+wget https://zenodo.org/record/8150859/files/ema_true_model.tar.gz
+tar -xzf ema_decoy_model.tar.gz
+tar -xzf ema_true_model.tar.gz
+```
+
+Train a model for the estimation of protein structure model accuracy (**EMA**) task (A.K.A. equivariant quality (EQ) assessment of protein structures)
+
+```bash
+python3 src/train.py experiment=gcpnet_eq.yaml
+```
+
+Reproduce our results for the EMA task
 
 ```bash
 eq_model_1_ckpt_path="checkpoints/EQ/model_1_epoch_53_per_res_pearson_0_7443.ckpt"
@@ -351,7 +356,7 @@ python3 src/eval.py datamodule=eq model=gcpnet_eq logger=csv trainer.accelerator
 ```
 
 ```bash
-EQ Model 1
+EMA Model 1
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ┃          Test metric           ┃          DataLoader 0          ┃
 ┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
@@ -364,7 +369,7 @@ EQ Model 1
 │           test/loss            │      0.005294517148286104      │
 └────────────────────────────────┴────────────────────────────────┘
 
-EQ Model 2
+EMA Model 2
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ┃          Test metric           ┃          DataLoader 0          ┃
 ┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
@@ -377,7 +382,7 @@ EQ Model 2
 │           test/loss            │      0.005294565111398697      │
 └────────────────────────────────┴────────────────────────────────┘
 
-EQ Model 3
+EMA Model 3
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ┃          Test metric           ┃          DataLoader 0          ┃
 ┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
@@ -391,27 +396,7 @@ EQ Model 3
 └────────────────────────────────┴────────────────────────────────┘
 ```
 
-Reproduce our results for the AR task
-
-```bash
-ar_model_1_ckpt_path="checkpoints/AR/model_1_epoch_A.ckpt"
-ar_model_2_ckpt_path="checkpoints/AR/model_2_epoch_B.ckpt"
-ar_model_3_ckpt_path="checkpoints/AR/model_3_epoch_C.ckpt"
-ar_model_4_ckpt_path="checkpoints/AR/model_4_epoch_D.ckpt"
-ar_model_5_ckpt_path="checkpoints/AR/model_5_epoch_E.ckpt"
-ar_model_6_ckpt_path="checkpoints/AR/model_6_epoch_F.ckpt"
-ar_model_7_ckpt_path="checkpoints/AR/model_7_epoch_G.ckpt"
-ar_model_8_ckpt_path="checkpoints/AR/model_8_epoch_H.ckpt"
-ar_model_9_ckpt_path="checkpoints/AR/model_9_epoch_I.ckpt"
-ar_model_10_ckpt_path="checkpoints/AR/model_10_epoch_J.ckpt"
-
-python3 src/eval.py datamodule=ar model=gcpnet_ar logger=csv trainer.accelerator=gpu trainer.devices=1 ckpt_path="$ar_model_1_ckpt_path"
-...
-python3 src/eval.py datamodule=ar model=gcpnet_ar logger=csv trainer.accelerator=gpu trainer.devices=1 ckpt_path="$ar_model_10_ckpt_path"
-```
-
-## How to predict
-Predict per-residue and per-model lDDT scores for a computationally-predicted (e.g., AlphaFold 2) protein structure decoy
+Predict per-residue and per-model lDDT scores for computationally-predicted (e.g., AlphaFold 2) protein structure decoys
 
 ```bash
 eq_model_ckpt_path="checkpoints/EQ/model_1_epoch_53_per_res_pearson_0_7443.ckpt"
@@ -421,24 +406,16 @@ num_workers=0  # note: required when initially processing new PDB file inputs, d
 python3 src/predict.py model=gcpnet_eq datamodule=eq datamodule.predict_input_dir=$MY_INPUT_PDB_DIR datamodule.predict_true_dir=$MY_OPTIONAL_TRUE_PDB_DIR datamodule.predict_output_dir=$MY_OUTPUTS_DIR datamodule.predict_batch_size=$predict_batch_size datamodule.num_workers=$num_workers logger=csv trainer.accelerator=gpu trainer.devices=1 ckpt_path="$eq_model_ckpt_path"
 ```
 
-Predict a refined structure for a protein structure decoy
-
-```bash
-ar_model_ckpt_path="checkpoints/AR/model_1_epoch_23.ckpt"
-predict_batch_size=1  # adjust as desired according to available GPU memory
-num_workers=0  # note: required when initially processing new PDB file inputs, due to ESM's GPU usage
-
-python3 src/predict.py model=gcpnet_ar datamodule=ar datamodule.predict_input_dir=$MY_INPUT_PDB_DIR datamodule.predict_true_dir=$MY_OPTIONAL_TRUE_PDB_DIR datamodule.predict_output_dir=$MY_OUTPUTS_DIR datamodule.predict_batch_size=$predict_batch_size datamodule.num_workers=$num_workers logger=csv trainer.accelerator=gpu trainer.devices=1 ckpt_path="$ar_model_ckpt_path"
-```
-
 ## Acknowledgements
 
 GCPNet builds upon the source code and data from the following projects:
-
 * [ClofNet](https://github.com/mouthful/ClofNet)
 * [GBPNet](https://github.com/sarpaykent/GBPNet)
 * [gvp-pytorch](https://github.com/drorlab/gvp-pytorch)
 * [lightning-hydra-template](https://github.com/ashleve/lightning-hydra-template)
+
+GCPNet-EMA builds upon the source code and data from the following project(s):
+* [EnQA](https://github.com/BioinfoMachineLearning/EnQA)
 
 We thank all their contributors and maintainers!
 
