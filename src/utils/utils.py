@@ -2,6 +2,7 @@
 # Following code curated for GCPNet (https://github.com/BioinfoMachineLearning/GCPNet):
 # -------------------------------------------------------------------------------------------------------------------------------------
 
+import signal
 import time
 import warnings
 from importlib.util import find_spec
@@ -9,12 +10,18 @@ from pathlib import Path
 from typing import Callable, List
 
 import hydra
+from contextlib import contextmanager
 from omegaconf import DictConfig
 from pytorch_lightning import Callback
 from pytorch_lightning.loggers import LightningLoggerBase
 from pytorch_lightning.utilities import rank_zero_only
 
 from src.utils import pylogger, rich_utils
+
+from torchtyping import patch_typeguard
+from typeguard import typechecked
+
+patch_typeguard()  # use before @typechecked
 
 log = pylogger.get_pylogger(__name__)
 
@@ -207,3 +214,20 @@ def close_loggers() -> None:
         if wandb.run:
             log.info("Closing wandb!")
             wandb.finish()
+
+
+class TimeoutException(Exception):
+    pass
+
+
+@contextmanager
+@typechecked
+def time_limit(seconds: int):
+    def signal_handler(signum, frame):
+        raise TimeoutException("Timed out!")
+    signal.signal(signal.SIGALRM, signal_handler)
+    signal.alarm(seconds)
+    try:
+        yield
+    finally:
+        signal.alarm(0)

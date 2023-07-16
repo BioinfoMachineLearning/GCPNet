@@ -2,15 +2,17 @@
 # Following code curated for GCPNet (https://github.com/BioinfoMachineLearning/GCPNet):
 # -------------------------------------------------------------------------------------------------------------------------------------
 
-from src import utils
 import os
 import hydra
+import pyrootutils
+import ssl
+
 import pytorch_lightning as pl
+
 from omegaconf import DictConfig
 from pytorch_lightning import Callback, LightningDataModule, LightningModule, Trainer
 from pytorch_lightning.loggers import LightningLoggerBase
 from typing import List, Optional, Tuple
-import pyrootutils
 
 root = pyrootutils.setup_root(
     search_from=__file__,
@@ -18,6 +20,8 @@ root = pyrootutils.setup_root(
     pythonpath=True,
     dotenv=True,
 )
+
+from src import utils
 
 
 # ------------------------------------------------------------------------------------ #
@@ -64,6 +68,9 @@ def train(cfg: DictConfig) -> Tuple[dict, dict]:
     Returns:
         Tuple[dict, dict]: Dict with metrics and dict with all instantiated objects.
     """
+    if getattr(cfg, "create_unverified_ssl_context", False):
+        log.info("Creating unverified SSL context!")
+        ssl._create_default_https_context = ssl._create_unverified_context
 
     # set seed for random number generators in pytorch, numpy and python.random
     if cfg.get("seed"):

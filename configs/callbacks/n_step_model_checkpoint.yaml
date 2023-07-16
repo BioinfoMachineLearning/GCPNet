@@ -1,0 +1,9 @@
+# Adapted from: https://github.com/Lightning-AI/lightning/issues/2534#issuecomment-674582085
+
+# Save the model periodically by monitoring a global step counter.
+# Look at the above link for more detailed information.
+n_step_model_checkpoint:
+  _target_: src.utils.NStepModelCheckpoint
+  save_step_frequency: 25000 # how often to save in terms of number of steps
+  prefix: "N_step_checkpoint" # prefix to add to the checkpoint names when `use_modelcheckpoint_filename=False`
+  use_modelcheckpoint_filename: false # whether to use `ModelCheckpoint` callback's default filename instead of that of this callback

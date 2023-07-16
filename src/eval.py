@@ -2,12 +2,14 @@
 # Following code curated for GCPNet (https://github.com/BioinfoMachineLearning/GCPNet):
 # -------------------------------------------------------------------------------------------------------------------------------------
 
+import hydra
+import pyrootutils
+import ssl
+
 from pytorch_lightning.loggers import LightningLoggerBase
 from pytorch_lightning import LightningDataModule, LightningModule, Trainer
 from omegaconf import DictConfig
-import hydra
 from typing import List, Tuple
-import pyrootutils
 
 root = pyrootutils.setup_root(
     search_from=__file__,
@@ -65,6 +67,10 @@ def evaluate(cfg: DictConfig) -> Tuple[dict, dict]:
 
     assert cfg.ckpt_path
 
+    if getattr(cfg, "create_unverified_ssl_context", False):
+        log.info("Creating unverified SSL context!")
+        ssl._create_default_https_context = ssl._create_unverified_context
+
     log.info(f"Instantiating datamodule <{cfg.datamodule._target_}>")
     datamodule: LightningDataModule = hydra.utils.instantiate(cfg.datamodule)
 
@@ -105,9 +111,6 @@ def evaluate(cfg: DictConfig) -> Tuple[dict, dict]:
 
     log.info("Starting testing!")
     trainer.test(model=model, datamodule=datamodule)
-
-    # for predictions use trainer.predict(...)
-    # predictions = trainer.predict(model=model, dataloaders=dataloaders)
 
     metric_dict = trainer.callback_metrics
 

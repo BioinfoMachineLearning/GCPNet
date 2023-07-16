@@ -80,6 +80,12 @@ class ScalarVector(tuple):
     def clone(self):
         return ScalarVector(self.scalar.clone(), self.vector.clone())
 
+    def mask(self, node_mask: TensorType["num_nodes"]):
+        return ScalarVector(
+            self.scalar * node_mask[:, None],
+            self.vector * node_mask[:, None, None]
+        )
+
     def __setitem__(self, key, value):
         self.scalar[key] = value.scalar
         self.vector[key] = value.vector

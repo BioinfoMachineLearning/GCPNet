@@ -1,0 +1,24 @@
+# @package _global_
+
+defaults:
+  - _self_
+  - datamodule: input_eq.yaml # choose datamodule with `test_dataloader()` for prediction
+  - model: gcpnet_eq.yaml
+  - logger: null
+  - trainer: default.yaml
+  - paths: default.yaml
+  - extras: default.yaml
+  - hydra: default.yaml
+
+task_name: "predict"
+
+tags: ["dev"]
+
+# passing checkpoint path is necessary for prediction
+ckpt_path: ???
+
+# seed for random number generators in pytorch, numpy and python.random
+seed: 42
+
+# note: for WandB logging from certain remote GPU servers
+create_unverified_ssl_context: false

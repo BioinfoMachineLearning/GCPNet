@@ -28,7 +28,8 @@ TEMPLATE_RUN_NAME = f"{TIMESTAMP}_{MODEL_NAME}"
 TIMEOUT_PERIOD = 1438 if HIGH_MEMORY else 118
 FINAL_TEMPLATE_LINE = f"timeout {TIMEOUT_PERIOD}m jsrun -E LD_PRELOAD=/opt/ibm/spectrum_mpi/lib/pami_490/libpami.so -r1 -g6 -a6 -c42 -bpacked:7 python3 src/train.py experiment={EXPERIMENT}"
 NUM_RUNS_PER_EXPERIMENT = {"lba": 3, "psr": 1, "cpd": 1,
-                           "nms_small": 1, "nms_small_20body": 1, "nms_static": 1, "nms_dynamic": 1}
+                           "nms_small": 1, "nms_small_20body": 1, "nms_static": 1, "nms_dynamic": 1,
+                           "ar": 1, "eq": 3}
 
 # establish paths
 OUTPUT_SCRIPT_FILENAME_PREFIX = "train"
@@ -53,7 +54,7 @@ def build_arguments_string(
     run_id: str = wandb.util.generate_id()
 ) -> str:
     # substitute latest grid search parameter values into final line of latest script
-    final_line += f" tags=['gcpnet', 'cpd', 'grid_search', 'summit'] logger=wandb logger.wandb.id={run_id} logger.wandb.name={run_name}_GCPv{run['gcp_version']}"
+    final_line += f" tags=['gcpnet', 'cpd', 'grid_search'] logger=wandb logger.wandb.id={run_id} logger.wandb.name={run_name}_GCPv{run['gcp_version']}"
 
     # install a unique WandB run name
     for s, (key, value) in zip(run["key_names"].split(), items_to_show):

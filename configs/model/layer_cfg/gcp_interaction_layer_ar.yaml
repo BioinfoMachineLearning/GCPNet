@@ -1,0 +1,10 @@
+defaults:
+  - mp_cfg: gcp_mp_ar.yaml
+
+pre_norm: false
+use_scalar_message_attention: true
+aggregate_with_row: true
+num_feedforward_layers: 1
+dropout: 0.0
+
+nonlinearity_slope: 1e-2
