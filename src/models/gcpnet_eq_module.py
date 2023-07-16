@@ -484,7 +484,7 @@ class GCPNetEQLitModule(LightningModule):
     ) -> List[Dict[str, Any]]:
         # create temporary output PDB files for predictions
         batch_metrics = []
-        initial_res_scores = batch.initial_res_scores.detach().cpu().numpy()
+        initial_res_scores = batch.initial_res_scores.detach().cpu().numpy() if hasattr(batch, "initial_res_scores") else None
         pred_res_scores = res_preds.detach().cpu().numpy()
         pred_global_scores = global_preds.detach().cpu().numpy()
         batch_loss = None if loss is None else loss.detach().cpu().numpy()
@@ -498,7 +498,8 @@ class GCPNetEQLitModule(LightningModule):
             prediction_path = str(temp_pdb_dir / Path(f"predicted_{temp_pdb_code}").with_suffix(".pdb"))
             true_path = str(temp_pdb_dir / Path(f"true_{temp_pdb_code}").with_suffix(".pdb"))
             # isolate each individual example within the current batch
-            initial_res_scores_ = initial_res_scores[res_batch_index == b_index] * plddt_scale_factor
+            if initial_res_scores is not None:
+                initial_res_scores_ = initial_res_scores[res_batch_index == b_index] * plddt_scale_factor
             pred_res_scores_ = pred_res_scores[res_batch_index == b_index] * plddt_scale_factor
             pred_global_score_ = pred_global_scores[b_index] * plddt_scale_factor
             loss_ = np.nan if batch_loss is None else batch_loss[b_index]
@@ -509,7 +510,7 @@ class GCPNetEQLitModule(LightningModule):
                 column_name="b_factor",
                 new_column_values=pred_res_scores_
             )
-            if labels_ is not None:
+            if labels_ is not None and initial_res_scores is not None:
                 annotate_pdb_with_new_column_values(
                     input_pdb_filepath=initial_pdb_filepath,
                     output_pdb_filepath=true_path,

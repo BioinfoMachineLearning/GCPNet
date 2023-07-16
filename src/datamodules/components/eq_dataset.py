@@ -445,7 +445,7 @@ class EQDataset(Dataset):
             mask=protein_data.protein_mask,
             num_atoms=protein_data.protein_num_atoms,
             decoy_protein_alphafold_per_residue_plddt=protein_data.protein_decoy_alphafold_per_residue_plddt,
-            decoy_protein_per_residue_lddt=protein_data.protein_decoy_per_residue_lddt
+            decoy_protein_per_residue_lddt=getattr(protein_data, "protein_decoy_per_residue_lddt", None)
         )
         return data, protein
 
@@ -489,7 +489,7 @@ class EQDataset(Dataset):
             e=e,
             xi=xi,
             x=data.x,
-            label=data.decoy_protein_per_residue_lddt,
+            label=getattr(data, "decoy_protein_per_residue_lddt", None),
             edge_index=edge_index,
             mask=data.mask,
             atom_types=data.atom_types,
