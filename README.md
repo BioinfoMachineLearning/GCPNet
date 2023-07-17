@@ -45,9 +45,9 @@ conda activate gcpnet  # note: one still needs to use `conda` to (de)activate en
 pip3 install -e .
 ```
 
-## GCPNet Foundation Tasks and Models
+## GCPNet Foundational Tasks and Models
 
-Download data for foundation tasks
+Download data for foundational tasks
 ```bash
 # initialize data directory structure
 mkdir -p data
@@ -88,7 +88,7 @@ bash molprobity/setup.sh  # note: this command will likely fail due to not being
 ```
 Make sure to update the `tmscore_exec_path` and `molprobity_exec_path` values in e.g., `configs/paths/default.yaml` to reflect where you have placed the TM-score and MolProbity executables on your machine. Also, make sure that `lddt_exec_path` points to the `bin/lddt` path within your `gcpnet` Conda environment, where `lddt` is installed automatically as described in `environment.yaml`.
 
-## How to train foundation models
+## How to train foundational models
 
 Train model with default configuration
 
@@ -148,7 +148,7 @@ _**New**_: For tasks that may benefit from it, you can now enable E(3) equivaria
 python3 src/train.py model.module_cfg.enable_e3_equivariance=true
 ```
 
-## How to evaluate foundation models
+## How to evaluate foundational models
 Reproduce our results for the LBA task
 
 ```bash
@@ -410,7 +410,7 @@ python3 src/predict.py model=gcpnet_eq datamodule=eq datamodule.predict_input_di
 
 ## Acknowledgements
 
-GCPNet foundation models build upon the source code and data from the following projects:
+GCPNet foundational models build upon the source code and data from the following projects:
 * [ClofNet](https://github.com/mouthful/ClofNet)
 * [GBPNet](https://github.com/sarpaykent/GBPNet)
 * [gvp-pytorch](https://github.com/drorlab/gvp-pytorch)
@@ -424,7 +424,7 @@ We thank all their contributors and maintainers!
 
 ## Citing this work
 
-If you use the code or data associated with the GCPNet foundation models within this package or otherwise find such work useful, please cite:
+If you use the code or data associated with the GCPNet foundational models within this package or otherwise find such work useful, please cite:
 
 ```bibtex
 @article{morehead2023gcpnet,
