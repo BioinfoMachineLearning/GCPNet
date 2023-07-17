@@ -19,7 +19,18 @@
 
 A PyTorch implementation of Geometry-Complete SE(3)-Equivariant Perceptron Networks (GCPNets)
 
-## How to run
+<details open><summary><b>Table of contents</b></summary>
+
+- [Creating a Virtual Environment](#virtual-environment-creation)
+- [GCPNet Foundational Tasks and Models](#gcpnet-foundational)
+  - [Model Training](#gcpnet-foundational-training)
+  - [Model Evaluation](#gcpnet-foundational-evaluation)
+- [GCPNet for Protein Structure EMA](#gcpnet-ema)
+- [Acknowledgements](#acknowledgements)
+- [Citations](#citations)
+</details>
+
+## How to run <a name="virtual-environment-creation"></a>
 
 Install Mamba
 
@@ -45,7 +56,7 @@ conda activate gcpnet  # note: one still needs to use `conda` to (de)activate en
 pip3 install -e .
 ```
 
-## GCPNet Foundational Tasks and Models
+## GCPNet Foundational Tasks and Models <a name="gcpnet-foundational"></a>
 
 Download data for foundational tasks
 ```bash
@@ -88,7 +99,7 @@ bash molprobity/setup.sh  # note: this command will likely fail due to not being
 ```
 Make sure to update the `tmscore_exec_path` and `molprobity_exec_path` values in e.g., `configs/paths/default.yaml` to reflect where you have placed the TM-score and MolProbity executables on your machine. Also, make sure that `lddt_exec_path` points to the `bin/lddt` path within your `gcpnet` Conda environment, where `lddt` is installed automatically as described in `environment.yaml`.
 
-## How to train foundational models
+## How to train foundational models <a name="gcpnet-foundational-training"></a>
 
 Train model with default configuration
 
@@ -148,7 +159,7 @@ _**New**_: For tasks that may benefit from it, you can now enable E(3) equivaria
 python3 src/train.py model.module_cfg.enable_e3_equivariance=true
 ```
 
-## How to evaluate foundational models
+## How to evaluate foundational models <a name="gcpnet-foundational-evaluation"></a>
 Reproduce our results for the LBA task
 
 ```bash
@@ -328,7 +339,7 @@ CPD Model
 └──────────────────────────────┴──────────────────────────────┴──────────────────────────────┴──────────────────────────────┘
 ```
 
-## GCPNet-EMA
+## GCPNet-EMA <a name="gcpnet-ema"></a>
 Download training and evaluation data
 
 ```bash
@@ -408,7 +419,7 @@ num_workers=0  # note: required when initially processing new PDB file inputs, d
 python3 src/predict.py model=gcpnet_eq datamodule=eq datamodule.predict_input_dir=$MY_INPUT_PDB_DIR datamodule.predict_true_dir=$MY_OPTIONAL_TRUE_PDB_DIR datamodule.predict_output_dir=$MY_OUTPUTS_DIR datamodule.predict_batch_size=$predict_batch_size datamodule.num_workers=$num_workers logger=csv trainer.accelerator=gpu trainer.devices=1 ckpt_path="$eq_model_ckpt_path"
 ```
 
-## Acknowledgements
+## Acknowledgements <a name="acknowledgements"></a>
 
 GCPNet foundational models build upon the source code and data from the following projects:
 * [ClofNet](https://github.com/mouthful/ClofNet)
@@ -422,7 +433,7 @@ GCPNet-EMA builds upon the source code and data from the following project(s):
 We thank all their contributors and maintainers!
 
 
-## Citing this work
+## Citing this work <a name="citations"></a>
 
 If you use the code or data associated with the GCPNet foundational models within this package or otherwise find such work useful, please cite:
 
