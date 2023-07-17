@@ -90,7 +90,7 @@ class ARDataset(Dataset):
         force_process_data: bool = False,
         load_only_unprocessed_examples: bool = False,
         subset_to_backbone_atoms_only: bool = False,
-        is_test_dataset: bool = False,
+        is_inference_dataset: bool = False,
     ):
         self.initial_pdbs = initial_pdbs
         self.model_data_cache_dir = model_data_cache_dir
@@ -105,7 +105,7 @@ class ARDataset(Dataset):
         self.force_process_data = force_process_data
         self.load_only_unprocessed_examples = load_only_unprocessed_examples
         self.subset_to_backbone_atoms_only = subset_to_backbone_atoms_only
-        self.is_test_dataset = is_test_dataset
+        self.is_inference_dataset = is_inference_dataset
         self.num_pdbs = len(self.initial_pdbs)
 
         os.makedirs(self.model_data_cache_dir, exist_ok=True)
@@ -389,7 +389,7 @@ class ARDataset(Dataset):
 
         if not initial_data_exists:
             # otherwise, start by identifying filepath of true PDB
-            if self.is_test_dataset:
+            if self.is_inference_dataset:
                 true_pdb_filepath = initial_pdb_filepath
             else:
                 true_pdb_filepath = self.initial_pdbs[idx]["true_pdb"]
@@ -515,7 +515,7 @@ class ARDataset(Dataset):
         data = self.finalize_graph_features_within_data(data, rbf_edge_dist_cutoff=self.rbf_edge_dist_cutoff, num_rbf=self.num_rbf)
         if self.subset_to_backbone_atoms_only:
             data = self.subset_data_to_backbone_atoms_only(data, rbf_edge_dist_cutoff=self.rbf_edge_dist_cutoff, num_rbf=self.num_rbf)
-        if self.is_test_dataset and len(data.ca_x) >= INFERENCE_SEQUENCE_CROP_LENGTH:
+        if self.is_inference_dataset and len(data.ca_x) >= INFERENCE_SEQUENCE_CROP_LENGTH:
             data = self.crop_inference_data(data)
         return data
 

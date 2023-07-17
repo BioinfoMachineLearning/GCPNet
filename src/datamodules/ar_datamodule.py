@@ -167,7 +167,7 @@ class ARDataModule(pl.LightningDataModule):
             force_process_data=self.hparams.force_process_data,
             load_only_unprocessed_examples=self.hparams.load_only_unprocessed_examples,
             subset_to_backbone_atoms_only=self.hparams.subset_to_backbone_atoms_only,
-            is_test_dataset=False
+            is_inference_dataset=False
         )
         self.val_set = ARDataset(
             initial_pdbs=valid_pdbs,
@@ -183,7 +183,7 @@ class ARDataModule(pl.LightningDataModule):
             force_process_data=self.hparams.force_process_data,
             load_only_unprocessed_examples=self.hparams.load_only_unprocessed_examples,
             subset_to_backbone_atoms_only=self.hparams.subset_to_backbone_atoms_only,
-            is_test_dataset=False
+            is_inference_dataset=False
         )
         self.test_ar_set = ARDataset(
             initial_pdbs=test_ar_pdbs,
@@ -199,7 +199,7 @@ class ARDataModule(pl.LightningDataModule):
             force_process_data=self.hparams.force_process_data,
             load_only_unprocessed_examples=self.hparams.load_only_unprocessed_examples,
             subset_to_backbone_atoms_only=self.hparams.subset_to_backbone_atoms_only,
-            is_test_dataset=True
+            is_inference_dataset=False
         )
         self.test_casp14_set = ARDataset(
             initial_pdbs=test_casp14_pdbs,
@@ -215,7 +215,7 @@ class ARDataModule(pl.LightningDataModule):
             force_process_data=self.hparams.force_process_data,
             load_only_unprocessed_examples=self.hparams.load_only_unprocessed_examples,
             subset_to_backbone_atoms_only=self.hparams.subset_to_backbone_atoms_only,
-            is_test_dataset=True
+            is_inference_dataset=False
         )
         self.test_casp14_refinement_set = ARDataset(
             initial_pdbs=test_casp14_refinement_pdbs,
@@ -231,7 +231,7 @@ class ARDataModule(pl.LightningDataModule):
             force_process_data=self.hparams.force_process_data,
             load_only_unprocessed_examples=self.hparams.load_only_unprocessed_examples,
             subset_to_backbone_atoms_only=self.hparams.subset_to_backbone_atoms_only,
-            is_test_dataset=True
+            is_inference_dataset=False
         )
         self.predict_set = ARDataset(
             initial_pdbs=predict_pdbs,
@@ -247,7 +247,7 @@ class ARDataModule(pl.LightningDataModule):
             force_process_data=self.hparams.force_process_data,
             load_only_unprocessed_examples=self.hparams.load_only_unprocessed_examples,
             subset_to_backbone_atoms_only=self.hparams.subset_to_backbone_atoms_only,
-            is_test_dataset=True
+            is_inference_dataset=True
         )
 
     @typechecked
