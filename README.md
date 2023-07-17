@@ -45,7 +45,9 @@ conda activate gcpnet  # note: one still needs to use `conda` to (de)activate en
 pip3 install -e .
 ```
 
-Download data
+## GCPNet Foundation Tasks and Models
+
+Download data for foundation tasks
 ```bash
 # initialize data directory structure
 mkdir -p data
@@ -86,7 +88,7 @@ bash molprobity/setup.sh  # note: this command will likely fail due to not being
 ```
 Make sure to update the `tmscore_exec_path` and `molprobity_exec_path` values in e.g., `configs/paths/default.yaml` to reflect where you have placed the TM-score and MolProbity executables on your machine. Also, make sure that `lddt_exec_path` points to the `bin/lddt` path within your `gcpnet` Conda environment, where `lddt` is installed automatically as described in `environment.yaml`.
 
-## How to train
+## How to train foundation models
 
 Train model with default configuration
 
@@ -146,7 +148,7 @@ _**New**_: For tasks that may benefit from it, you can now enable E(3) equivaria
 python3 src/train.py model.module_cfg.enable_e3_equivariance=true
 ```
 
-## How to evaluate
+## How to evaluate foundation models
 Reproduce our results for the LBA task
 
 ```bash
@@ -408,7 +410,7 @@ python3 src/predict.py model=gcpnet_eq datamodule=eq datamodule.predict_input_di
 
 ## Acknowledgements
 
-GCPNet builds upon the source code and data from the following projects:
+GCPNet foundation models build upon the source code and data from the following projects:
 * [ClofNet](https://github.com/mouthful/ClofNet)
 * [GBPNet](https://github.com/sarpaykent/GBPNet)
 * [gvp-pytorch](https://github.com/drorlab/gvp-pytorch)
@@ -422,13 +424,23 @@ We thank all their contributors and maintainers!
 
 ## Citing this work
 
-If you use the code or data associated with this package or otherwise find this work useful, please cite:
+If you use the code or data associated with the GCPNet foundation models within this package or otherwise find such work useful, please cite:
 
 ```bibtex
 @article{morehead2023gcpnet,
   title={Geometry-Complete Perceptron Networks for 3D Molecular Graphs},
   author={Morehead, Alex and Cheng, Jianlin},
   journal={AAAI Workshop on Deep Learning on Graphs: Methods and Applications},
+  year={2023}
+}
+```
+
+If you use the code or data associated with the GCPNet-EMA model within this package or otherwise find such work useful, please cite:
+
+```bibtex
+@article{morehead2023gcpnet_ema,
+  title={Protein Structure Accuracy Estimation using Geometry-Complete Perceptron Networks},
+  author={Morehead, Alex and Cheng, Jianlin},
   year={2023}
 }
 ```
