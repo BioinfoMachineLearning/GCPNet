@@ -7,7 +7,7 @@ import pandas as pd
 
 from biopandas.pdb import PandasPdb
 from scipy.spatial.distance import pdist, squareform
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, DefaultDict, Dict, List, Optional
 
 from torchtyping import patch_typeguard
 from typeguard import typechecked
@@ -507,7 +507,12 @@ def process_pdb(
 
 
 @typechecked
-def compute_covalent_bond_matrix(pdb_filepath: str, tolerance: float = TOLERANCE) -> np.ndarray:
+def compute_covalent_bond_matrix(
+    pdb_filepath: str,
+    tolerance: float = TOLERANCE,
+    residue_to_atom_names_mapping: Optional[DefaultDict] = None,
+    unaligned_residue_indices_to_drop: Optional[List[int]] = None
+) -> np.ndarray:
     raw_pdb = read_pdb_file_to_pdb(
         pdb_path=pdb_filepath,
         verbose=False,
@@ -523,6 +528,27 @@ def compute_covalent_bond_matrix(pdb_filepath: str, tolerance: float = TOLERANCE
         deprotonate=True,
         keep_hets=[]
     )
+
+    if unaligned_residue_indices_to_drop is not None:
+        # note: residue numbers are indexed starting at 1
+        unaligned_residue_indices_to_drop_ = [idx + 1 for idx in unaligned_residue_indices_to_drop]
+        processed_pdb_df = processed_pdb_df[~processed_pdb_df.residue_number.isin(unaligned_residue_indices_to_drop_)]
+
+    if residue_to_atom_names_mapping is not None:
+        # note: for some test examples, we need to select only the atoms that were mappable between decoy and ground-truth structures
+        res_keys = list(residue_to_atom_names_mapping.keys())
+        res_values = list(residue_to_atom_names_mapping.values())
+        res_names = [res_key[:3] for res_key in res_keys]
+        assert res_names == (processed_pdb_df[processed_pdb_df["atom_name"] == "CA"]["residue_name"].tolist())
+        filtered_processed_pdb_df = pd.DataFrame(columns=processed_pdb_df.columns)
+        for group_index, (_, group) in enumerate(processed_pdb_df.groupby("residue_number")):
+            group_atom_order = res_values[group_index]
+            filtered_group = group[group["atom_name"].isin(group_atom_order)]
+            # sort the filtered group based on the atom ordering in `res_values`
+            filtered_group["atom_name"] = pd.Categorical(filtered_group["atom_name"], categories=group_atom_order, ordered=True)
+            filtered_group = filtered_group.sort_values("atom_name")
+            filtered_processed_pdb_df = filtered_processed_pdb_df.append(filtered_group)
+        processed_pdb_df = filtered_processed_pdb_df
 
     dist_mat = compute_distmat(processed_pdb_df)
 

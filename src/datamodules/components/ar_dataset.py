@@ -90,6 +90,7 @@ class ARDataset(Dataset):
         force_process_data: bool = False,
         load_only_unprocessed_examples: bool = False,
         subset_to_backbone_atoms_only: bool = False,
+        is_test_dataset: bool = False,
         is_inference_dataset: bool = False,
     ):
         self.initial_pdbs = initial_pdbs
@@ -105,6 +106,7 @@ class ARDataset(Dataset):
         self.force_process_data = force_process_data
         self.load_only_unprocessed_examples = load_only_unprocessed_examples
         self.subset_to_backbone_atoms_only = subset_to_backbone_atoms_only
+        self.is_test_dataset = is_test_dataset
         self.is_inference_dataset = is_inference_dataset
         self.num_pdbs = len(self.initial_pdbs)
 
@@ -135,9 +137,9 @@ class ARDataset(Dataset):
         return node_feats, len(sequence)
 
     @typechecked
-    def _get_structural_features(self, pdb_filepath: str, true_pdb: str, seq_len: int) -> Dict[str, Dict[str, Any]]:
-        atom_embeddings, atom_pos_list, num_atoms_per_residue_list, ca_atom_pos_list, residue_to_atom_names_mapping_list = get_atom_features(
-            pdb_filepath, true_pdb, (1, seq_len)
+    def _get_structural_features(self, pdb_filepath: str, true_pdb: str, seq_len: int, testing: bool = False, unaligned_residue_indices_to_drop: Optional[List[int]] = None) -> Dict[str, Union[Dict[str, Any], List[int]]]:
+        atom_embeddings, atom_pos_list, num_atoms_per_residue_list, ca_atom_pos_list, residue_to_atom_names_mapping_list, unaligned_residue_indices_to_drop_ = get_atom_features(
+            pdb_filepath, true_pdb, (1, seq_len), testing=testing, unaligned_residue_indices_to_drop=unaligned_residue_indices_to_drop
         )
         node_feats = {
             "atom_data": {
@@ -145,9 +147,11 @@ class ARDataset(Dataset):
                 "atom_pos_list": atom_pos_list,
                 "num_atoms_per_residue_list": num_atoms_per_residue_list,
                 "ca_atom_pos_list": ca_atom_pos_list,
-                "residue_to_atom_names_mapping_list": residue_to_atom_names_mapping_list
+                "residue_to_atom_names_mapping_list": residue_to_atom_names_mapping_list,
             }
         }
+        if testing:
+            node_feats["unaligned_residue_indices_to_drop"] = unaligned_residue_indices_to_drop if unaligned_residue_indices_to_drop is not None else unaligned_residue_indices_to_drop_
         return node_feats
 
     @staticmethod
@@ -427,10 +431,26 @@ class ARDataset(Dataset):
                 assert os.path.exists(initial_pdb_filepath) and os.path.exists(true_pdb_filepath), "Both initial and true PDB files must exist after cropping."
 
             # otherwise, collect all sequence-based, structural, and chemical features
-            seq_node_feats, seq_len = self._get_sequence_features(initial_pdb_filepath, cropped_sequence=cropped_sequence)
-            initial_covalent_bond_mat = compute_covalent_bond_matrix(initial_pdb_filepath)
-            initial_struct_node_feats = self._get_structural_features(initial_pdb_filepath, true_pdb_filepath, seq_len)
-            true_struct_node_feats = self._get_structural_features(true_pdb_filepath, true_pdb_filepath, seq_len)
+            unaligned_residue_indices_to_drop = []
+            if self.is_test_dataset:
+                seq_node_feats, seq_len = self._get_sequence_features(initial_pdb_filepath, cropped_sequence=cropped_sequence)
+                initial_struct_node_feats = self._get_structural_features(initial_pdb_filepath, true_pdb_filepath, seq_len, testing=self.is_test_dataset)
+                initial_residue_to_atom_names_mapping = initial_struct_node_feats["atom_data"]["residue_to_atom_names_mapping_list"]
+                unaligned_residue_indices_to_drop = initial_struct_node_feats["unaligned_residue_indices_to_drop"]
+                true_struct_node_feats = self._get_structural_features(
+                    true_pdb_filepath, true_pdb_filepath, seq_len, testing=self.is_test_dataset, unaligned_residue_indices_to_drop=unaligned_residue_indices_to_drop
+                )
+                initial_covalent_bond_mat = compute_covalent_bond_matrix(initial_pdb_filepath, residue_to_atom_names_mapping=initial_residue_to_atom_names_mapping, unaligned_residue_indices_to_drop=unaligned_residue_indices_to_drop)
+                if len(unaligned_residue_indices_to_drop):
+                    # drop missing residues' sequence features
+                    seq_node_feats["residue_sequence"] = "".join([char for char_index, char in enumerate(seq_node_feats["residue_sequence"]) if char_index not in unaligned_residue_indices_to_drop])
+                    seq_node_feats["residue_onehot"] = np.delete(seq_node_feats["residue_onehot"], unaligned_residue_indices_to_drop, axis=0)
+                    seq_node_feats["residue_indices"] = np.delete(seq_node_feats["residue_indices"], unaligned_residue_indices_to_drop, axis=0)
+            else:
+                seq_node_feats, seq_len = self._get_sequence_features(initial_pdb_filepath, cropped_sequence=cropped_sequence)
+                initial_struct_node_feats = self._get_structural_features(initial_pdb_filepath, true_pdb_filepath, seq_len, testing=self.is_test_dataset)
+                true_struct_node_feats = self._get_structural_features(true_pdb_filepath, true_pdb_filepath, seq_len, testing=self.is_test_dataset)
+                initial_covalent_bond_mat = compute_covalent_bond_matrix(initial_pdb_filepath)
 
             # add ESMFold sequence embeddings as scalar atom features that are shared between atoms of the same residue
             # note: assumes only a single chain's sequence is available
@@ -468,7 +488,12 @@ class ARDataset(Dataset):
             ca_atom_pos_list = initial_struct_node_feats["atom_data"]["ca_atom_pos_list"]
             initial_ca_atom_pos = np.vstack(ca_atom_pos_list)
 
-            p, q, k, t = derive_residue_local_frames(initial_pdb_filepath, initial_atom_pos_disp, num_atoms_per_residue)
+            p, q, k, t = derive_residue_local_frames(
+                initial_pdb_filepath,
+                initial_atom_pos_disp,
+                num_atoms_per_residue,
+                unaligned_residue_indices_to_drop=unaligned_residue_indices_to_drop
+            )
             initial_atom_frame_pairs = np.concatenate([p, q, k, t], axis=-1)
 
             # build `data` with initial features

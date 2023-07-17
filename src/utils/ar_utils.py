@@ -9,7 +9,7 @@ import numpy as np
 
 from Bio import SeqIO
 from collections import defaultdict
-from typing import DefaultDict, List, Tuple
+from typing import DefaultDict, List, Optional, Tuple
 
 from torchtyping import patch_typeguard
 from typeguard import typechecked
@@ -81,16 +81,41 @@ def get_one_hot(targets: np.ndarray, num_classes: int) -> np.ndarray:
 
 
 @typechecked
+def align_lists_by_biopython_residue_id(list1: list, list2: list) -> Tuple[list, list, list, list]:
+    # Create dictionaries to store objects by their id properties
+    dict1 = {obj.id[1]: obj for obj in list1}
+    dict2 = {obj.id[1]: obj for obj in list2}
+
+    # Get the common ids from both lists
+    common_ids = set(dict1.keys()).intersection(dict2.keys())
+
+    # Create aligned lists using the common ids
+    aligned_list1 = [dict1[id] for id in common_ids]
+    aligned_list2 = [dict2[id] for id in common_ids]
+
+    # Get the ids that are not in both lists
+    non_intersected_ids_list1 = set(dict1.keys()) - common_ids
+    non_intersected_ids_list2 = set(dict2.keys()) - common_ids
+
+    # Create lists of non-intersected elements using the non_intersected_ids
+    non_intersected_list1 = [dict1[id] for id in non_intersected_ids_list1]
+    non_intersected_list2 = [dict2[id] for id in non_intersected_ids_list2]
+
+    assert len(aligned_list1) == len(aligned_list2), "After alignment, both residue lists must contain the same number of residues."
+    return aligned_list1, aligned_list2, non_intersected_list1, non_intersected_list2
+
+
+@typechecked
 def get_atom_features(
     initial_pdb_filepath: str,
     true_pdb_filepath: str,
     res_range: Tuple[int, int],
     model_id: int = 0,
-    chain_id: int = 0
-) -> Tuple[List[np.ndarray], List[np.ndarray], List[int], List[np.ndarray], DefaultDict[str, List[str]]]:
+    chain_id: int = 0,
+    testing: bool = False,
+    unaligned_residue_indices_to_drop: Optional[List[int]] = None
+) -> Tuple[List[np.ndarray], List[np.ndarray], List[int], List[np.ndarray], DefaultDict[str, List[str]], List[int]]:
     """Generate atom embeddings using the coordinates and type associated with each amino acid residue."""
-    res_num = res_range[1] - res_range[0] + 1
-
     structure_true = pdb_parser.get_structure("native", true_pdb_filepath)
     model_true = structure_true.get_list()[model_id]
     chain_true = model_true.get_list()[chain_id]
@@ -100,20 +125,44 @@ def get_atom_features(
     model = structure.get_list()[model_id]
     chain = model.get_list()[chain_id]
     residue_list = chain.get_list()
-    atom_embeddings = [-1 for _ in range(res_num)]
-    atom_pos_list = [-1 for _ in range(res_num)]
 
     num_atoms_per_residue_list = []
     ca_atom_pos_list = []
     residue_to_atom_names_mapping_list = defaultdict(list)
+
+    res_num = res_range[1] - res_range[0] + 1
+    unaligned_residue_list, unaligned_residue_list_true = [], []
+    unaligned_residue_indices_to_drop_ = unaligned_residue_indices_to_drop if unaligned_residue_indices_to_drop is not None else []
+    if testing:
+        # note: assumes the decoy and ground-truth structures may have their residues out of sequence
+        # alignment with each other, so we need to correct for this using BioPython's IDs for each residue
+        residue_list, residue_list_true, unaligned_residue_list, unaligned_residue_list_true = align_lists_by_biopython_residue_id(residue_list, residue_list_true)
+        res_range = (residue_list[0].id[1], residue_list[-1].id[1])
+        res_num = len(residue_list)
+        unaligned_residue_indices_to_drop_ = unaligned_residue_indices_to_drop if unaligned_residue_indices_to_drop is not None else [res.id[1] - 1 for res in unaligned_residue_list]
+
+    atom_embeddings = [-1 for _ in range(res_num)]
+    atom_pos_list = [-1 for _ in range(res_num)]
+
     for residue, residue_true in zip(residue_list, residue_list_true):
         if residue_true.id[1] < res_range[0] or residue_true.id[1] > res_range[1]:
+            # note: assumes the ground-truth structure contains more residues than the decoy structure
             continue
         atom_pos, onehot = [], []
         _resname = residue_true.get_resname() if residue_true.get_resname() in RESIDUE_NAME_TO_ATOM_NAMES_MAPPING else "GLY"
+        # account for the fact that certain CASP ground-truth structures in the test datasets
+        # may have gapped (missing) residues in the middle of their sequences
+        num_decoy_gap_residues_passed = len([res for res in unaligned_residue_list if res.id[1] < residue.id[1] and res.id[1] > res_range[0]])
+        num_true_gap_residues_passed = len([res for res in unaligned_residue_list_true if res.id[1] < residue.id[1] and res.id[1] > res_range[0]])
+        if unaligned_residue_indices_to_drop is not None:
+            for res_index in unaligned_residue_indices_to_drop:
+                res_id = res_index + 1
+                if res_id < residue.id[1] and res_id > res_range[0]:
+                    num_decoy_gap_residues_passed += 1
+        num_gap_residues_passed = max(num_decoy_gap_residues_passed, num_true_gap_residues_passed)
         for _atom in RESIDUE_NAME_TO_ATOM_NAMES_MAPPING[_resname]["atoms"]:
             if residue_true.has_id(_atom):
-                residue_to_atom_names_mapping_list[_resname + str(residue.id[1] - res_range[0])].append(_atom)
+                residue_to_atom_names_mapping_list[_resname + str(residue.id[1] - res_range[0] - num_gap_residues_passed)].append(_atom)
                 atom_pos.append(residue[_atom].coord)
                 _onehot = np.zeros(len(ATOM_SYMBOL_TO_INDEX_MAPPING))
                 _onehot[ATOM_SYMBOL_TO_INDEX_MAPPING[_atom]] = 1
@@ -122,26 +171,32 @@ def get_atom_features(
         ca_atom_pos = residue["CA"].coord
         ca_atom_pos_list.append(ca_atom_pos)
         atom_embedding = np.concatenate((np.array(onehot), np.array(atom_pos) - ca_atom_pos[None, :]), axis=1)
-        atom_embeddings[residue.id[1] - res_range[0]] = atom_embedding.astype(np.float16)
-        atom_pos_list[residue.id[1] - res_range[0]] = np.array(atom_pos).astype(np.float16)
+        atom_embeddings[residue.id[1] - res_range[0] - num_gap_residues_passed] = atom_embedding.astype(np.float16)
+        atom_pos_list[residue.id[1] - res_range[0] - num_gap_residues_passed] = np.array(atom_pos).astype(np.float16)
 
     atom_nums = np.zeros((res_num))
     for i, _item in enumerate(atom_embeddings):
         if not np.isscalar(_item):
             atom_nums[i] = _item.shape[0]
 
-    return atom_embeddings, atom_pos_list, num_atoms_per_residue_list, ca_atom_pos_list, residue_to_atom_names_mapping_list
+    unaligned_residue_indices_to_drop = unaligned_residue_indices_to_drop_
+
+    return atom_embeddings, atom_pos_list, num_atoms_per_residue_list, ca_atom_pos_list, residue_to_atom_names_mapping_list, unaligned_residue_indices_to_drop
 
 
 @typechecked
 def derive_residue_local_frames(
     pdb_filepath: str,
     atom_pos: np.ndarray,
-    num_atoms_per_residue: List[int]
+    num_atoms_per_residue: List[int],
+    unaligned_residue_indices_to_drop: Optional[List[int]] = None,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     # load pdb file
     structure = pdb_parser.get_structure("tmp_struct", pdb_filepath)
     residues = [_ for _ in structure.get_residues()]
+
+    if unaligned_residue_indices_to_drop is not None:
+        residues = [_ for idx, _ in enumerate(residues) if idx not in unaligned_residue_indices_to_drop]
 
     # construct a local frame for each PDB residue
     pdict = {
