@@ -350,6 +350,7 @@ wget https://zenodo.org/record/8150859/files/ema_decoy_model.tar.gz
 wget https://zenodo.org/record/8150859/files/ema_true_model.tar.gz
 tar -xzf ema_decoy_model.tar.gz
 tar -xzf ema_true_model.tar.gz
+cd ../../  # head back to the root project directory
 ```
 
 Train a model for the estimation of protein structure model accuracy (**EMA**) task (A.K.A. equivariant quality (EQ) assessment of protein structures)
