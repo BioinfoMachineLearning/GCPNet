@@ -25,7 +25,7 @@ A PyTorch implementation of Geometry-Complete SE(3)-Equivariant Perceptron Netwo
 - [GCPNet Foundational Tasks and Models](#gcpnet-foundational)
   - [Model Training](#gcpnet-foundational-training)
   - [Model Evaluation](#gcpnet-foundational-evaluation)
-- [GCPNet for Protein Structure EMA](#gcpnet-ema)
+- [GCPNet for Protein Structure EMA (GCPNet-EMA)](#gcpnet-ema)
 - [Acknowledgements](#acknowledgements)
 - [Citations](#citations)
 </details>
