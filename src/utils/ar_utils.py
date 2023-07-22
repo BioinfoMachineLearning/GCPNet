@@ -137,6 +137,9 @@ def get_atom_features(
         # note: assumes the decoy and ground-truth structures may have their residues out of sequence
         # alignment with each other, so we need to correct for this using BioPython's IDs for each residue
         residue_list, residue_list_true, unaligned_residue_list, unaligned_residue_list_true = align_lists_by_biopython_residue_id(residue_list, residue_list_true)
+        # re-sort by `resseq`
+        residue_list.sort(key=lambda x: x.id[1]), residue_list_true.sort(key=lambda x: x.id[1])
+        unaligned_residue_list.sort(key=lambda x: x.id[1]), unaligned_residue_list_true.sort(key=lambda x: x.id[1])
         res_range = (residue_list[0].id[1], residue_list[-1].id[1])
         res_num = len(residue_list)
         unaligned_residue_indices_to_drop_ = unaligned_residue_indices_to_drop if unaligned_residue_indices_to_drop is not None else [res.id[1] - 1 for res in unaligned_residue_list]
