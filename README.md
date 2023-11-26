@@ -11,6 +11,8 @@
 
 **Update**: Also consider checking out our new diffusion generative model, GCDM, that uses GCPNet to improve equivariant diffusion models for 3D molecule generation in multiple ways. The GCDM [GitHub](https://github.com/BioinfoMachineLearning/bio-diffusion) and [paper](https://arxiv.org/abs/2302.04313).
 
+**Update**: Also consider checking out the new ProteinWorkshop benchmark which features GCPNet as a state-of-the-art geometric graph neural network for representation learning of 3D protein structures. [GitHub](https://github.com/a-r-j/ProteinWorkshop).
+
 ![GCP_Architecture.png](./img/GCPNet.png)
 
 </div>
@@ -22,10 +24,9 @@ A PyTorch implementation of Geometry-Complete SE(3)-Equivariant Perceptron Netwo
 <details open><summary><b>Table of contents</b></summary>
 
 - [Creating a Virtual Environment](#virtual-environment-creation)
-- [GCPNet Foundational Tasks and Models](#gcpnet-foundational)
-  - [Model Training](#gcpnet-foundational-training)
-  - [Model Evaluation](#gcpnet-foundational-evaluation)
-- [GCPNet for Protein Structure EMA (GCPNet-EMA)](#gcpnet-ema)
+- [GCPNet Tasks and Models](#gcpnet)
+  - [Model Training](#gcpnet-training)
+  - [Model Evaluation](#gcpnet-evaluation)
 - [Acknowledgements](#acknowledgements)
 - [Citations](#citations)
 </details>
@@ -56,9 +57,9 @@ conda activate gcpnet  # note: one still needs to use `conda` to (de)activate en
 pip3 install -e .
 ```
 
-## GCPNet Foundational Tasks and Models <a name="gcpnet-foundational"></a>
+## GCPNet Tasks and Models <a name="gcpnet"></a>
 
-Download data for foundational tasks
+Download data for tasks
 ```bash
 # initialize data directory structure
 mkdir -p data
@@ -81,25 +82,7 @@ navigating to https://figshare.com/s/e23be65a884ce7fc8543 and downloading the th
 
 **Note**: The ATOM3D datasets (i.e., the LBA and PSR datasets) as well as the CATH dataset we use will automatically be downloaded during execution of `src/train.py` or `src/eval.py` if they have not already been downloaded. However, data for the NMS and RS tasks must be downloaded manually.
 
-**Another Note**: TM-score and MolProbity are required to score protein structures, where one can install them as follows:
-```bash
-# download and compile TM-score
-mkdir -p ~/Programs && cd ~/Programs
-wget https://zhanggroup.org/TM-score/TMscore.cpp
-g++ -static -O3 -ffast-math -lm -o TMscore TMscore.cpp
-rm TMscore.cpp
-
-# download and compile MolProbity
-# note: beforehand, if not already installed within the `gcpnet` environment by `mamba`, make sure `svn` is installed locally using e.g., `apt install subversion` or `yum install subversion`
-mkdir -p ~/Programs/MolProbity && cd ~/Programs/MolProbity
-wget https://raw.githubusercontent.com/rlabduke/MolProbity/master/install_via_bootstrap.sh
-conda activate gcpnet  # ensure the `gcpnet` Conda environment is activated for installation
-bash install_via_bootstrap.sh 4  # note: `4` here indicates the number of processes to run in parallel for faster installation
-bash molprobity/setup.sh  # note: this command will likely fail due to not being run inside a GUI, but nonetheless installation should now be completed
-```
-Make sure to update the `tmscore_exec_path` and `molprobity_exec_path` values in e.g., `configs/paths/default.yaml` to reflect where you have placed the TM-score and MolProbity executables on your machine. Also, make sure that `lddt_exec_path` points to the `bin/lddt` path within your `gcpnet` Conda environment, where `lddt` is installed automatically as described in `environment.yaml`.
-
-## How to train foundational models <a name="gcpnet-foundational-training"></a>
+## How to train models <a name="gcpnet-training"></a>
 
 Train model with default configuration
 
@@ -159,7 +142,7 @@ _**New**_: For tasks that may benefit from it, you can now enable E(3) equivaria
 python3 src/train.py model.module_cfg.enable_e3_equivariance=true
 ```
 
-## How to evaluate foundational models <a name="gcpnet-foundational-evaluation"></a>
+## How to evaluate models <a name="gcpnet-evaluation"></a>
 Reproduce our results for the LBA task
 
 ```bash
@@ -339,130 +322,25 @@ CPD Model
 └──────────────────────────────┴──────────────────────────────┴──────────────────────────────┴──────────────────────────────┘
 ```
 
-## GCPNet-EMA <a name="gcpnet-ema"></a>
-**Note**: Make sure the `gcpnet` Mamba environment has previously been created as outlined above in the section [Creating a Virtual Environment](#virtual-environment-creation).
-
-Download training and evaluation data
-
-```bash
-cd data/EQ/
-wget https://zenodo.org/record/8150859/files/ema_decoy_model.tar.gz
-wget https://zenodo.org/record/8150859/files/ema_true_model.tar.gz
-tar -xzf ema_decoy_model.tar.gz
-tar -xzf ema_true_model.tar.gz
-cd ../../  # head back to the root project directory
-```
-
-Train a model for the estimation of protein structure model accuracy (**EMA**) task (A.K.A. equivariant quality (EQ) assessment of protein structures)
-
-```bash
-python3 src/train.py experiment=gcpnet_eq.yaml
-```
-
-Reproduce our results for the EMA task
-
-```bash
-eq_model_1_ckpt_path="checkpoints/EQ/model_1_epoch_53_per_res_pearson_0_7443.ckpt"
-eq_model_2_ckpt_path="checkpoints/EQ/model_2_epoch_25_per_res_pearson_0_7426.ckpt"
-eq_model_3_ckpt_path="checkpoints/EQ/model_3_epoch_14_per_res_pearson_0_7133.ckpt"
-
-python3 src/eval.py datamodule=eq model=gcpnet_eq logger=csv trainer.accelerator=gpu trainer.devices=1 ckpt_path="$eq_model_1_ckpt_path"
-python3 src/eval.py datamodule=eq model=gcpnet_eq logger=csv trainer.accelerator=gpu trainer.devices=1 ckpt_path="$eq_model_2_ckpt_path"
-python3 src/eval.py datamodule=eq model=gcpnet_eq logger=csv trainer.accelerator=gpu trainer.devices=1 ckpt_path="$eq_model_3_ckpt_path"
-```
-
-```bash
-EMA Model 1
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃          Test metric           ┃          DataLoader 0          ┃
-┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
-│        test/PerModelMAE        │      0.04894806072115898       │
-│        test/PerModelMSE        │      0.004262289963662624      │
-│  test/PerModelPearsonCorrCoef  │       0.8362738490104675       │
-│       test/PerResidueMAE       │      0.06654192507266998       │
-│       test/PerResidueMSE       │      0.009298641234636307      │
-│ test/PerResiduePearsonCorrCoef │       0.7442569732666016       │
-│           test/loss            │      0.005294517148286104      │
-└────────────────────────────────┴────────────────────────────────┘
-
-EMA Model 2
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃          Test metric           ┃          DataLoader 0          ┃
-┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
-│        test/PerModelMAE        │      0.04955434799194336       │
-│        test/PerModelMSE        │      0.004251933190971613      │
-│  test/PerModelPearsonCorrCoef  │       0.841285228729248        │
-│       test/PerResidueMAE       │      0.06787651032209396       │
-│       test/PerResidueMSE       │      0.009320290759205818      │
-│ test/PerResiduePearsonCorrCoef │       0.7426220774650574       │
-│           test/loss            │      0.005294565111398697      │
-└────────────────────────────────┴────────────────────────────────┘
-
-EMA Model 3
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃          Test metric           ┃          DataLoader 0          ┃
-┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
-│        test/PerModelMAE        │      0.05056113377213478       │
-│        test/PerModelMSE        │      0.004722739569842815      │
-│  test/PerModelPearsonCorrCoef  │       0.8154276013374329       │
-│       test/PerResidueMAE       │      0.07143402099609375       │
-│       test/PerResidueMSE       │      0.01017170213162899       │
-│ test/PerResiduePearsonCorrCoef │       0.7132763266563416       │
-│           test/loss            │      0.005769775714725256      │
-└────────────────────────────────┴────────────────────────────────┘
-```
-
-Predict per-residue and per-model lDDT scores for computationally-predicted (e.g., AlphaFold 2) protein structure decoys
-
-```bash
-eq_model_ckpt_path="checkpoints/EQ/model_1_epoch_53_per_res_pearson_0_7443.ckpt"
-predict_batch_size=1  # adjust as desired according to available GPU memory
-num_workers=0  # note: required when initially processing new PDB file inputs, due to ESM's GPU usage
-
-python3 src/predict.py model=gcpnet_eq datamodule=eq datamodule.predict_input_dir=$MY_INPUT_PDB_DIR datamodule.predict_true_dir=$MY_OPTIONAL_TRUE_PDB_DIR datamodule.predict_output_dir=$MY_OUTPUTS_DIR datamodule.predict_batch_size=$predict_batch_size datamodule.num_workers=$num_workers logger=csv trainer.accelerator=gpu trainer.devices=1 ckpt_path="$eq_model_ckpt_path"
-```
-
-For example, one can predict per-residue and per-model lDDT scores for a batch of tertiary protein structure inputs, `6W6VE.pdb` and `6W77K.pdb` within `data/EQ/examples/decoy_model`, as follows
-
-```bash
-python3 src/predict.py model=gcpnet_eq datamodule=eq datamodule.predict_input_dir=data/EQ/examples/decoy_model datamodule.predict_output_dir=data/EQ/examples/outputs datamodule.predict_batch_size=1 datamodule.num_workers=0 datamodule.python_exec_path="$HOME"/mambaforge/envs/gcpnet/bin/python datamodule.lddt_exec_path="$HOME"/mambaforge/envs/gcpnet/bin/lddt datamodule.pdbtools_dir="$HOME"/mambaforge/envs/gcpnet/lib/python3.9/site-packages/pdbtools/ logger=csv trainer.accelerator=gpu trainer.devices=[0] ckpt_path=checkpoints/EQ/model_1_epoch_53_per_res_pearson_0_7443.ckpt
-```
-
-**Note**: After running the above command, an output CSV containing metadata for the predictions will be located at `logs/predict/runs/YYYY-MM-DD_HH-MM-SS/predict_YYYYMMDD_HHMMSS_rank_0_predictions.csv`, with text substitutions for the time at which the above command was completed. This CSV will contain a column called `predicted_annotated_pdb_filepath` that identifies the temporary location of each input PDB file after annotating it with GCPNet-EMA's predicted lDDT scores for each residue. If a directory containing ground-truth PDB files corresponding one-to-one with the inputs in `datamodule.predict_input_dir` is provided as `datamodule.predict_true_dir`, then metrics and PDB annotation filepaths will also be reported in the output CSV to quantitatively and qualitatively describe how well GCPNet-EMA was able to improve upon AlphaFold's initial per-residue plDDT values.
-
 ## Acknowledgements <a name="acknowledgements"></a>
 
-GCPNet foundational models build upon the source code and data from the following projects:
+GCPNet builds upon the source code and data from the following projects:
 * [ClofNet](https://github.com/mouthful/ClofNet)
 * [GBPNet](https://github.com/sarpaykent/GBPNet)
 * [gvp-pytorch](https://github.com/drorlab/gvp-pytorch)
 * [lightning-hydra-template](https://github.com/ashleve/lightning-hydra-template)
 
-GCPNet-EMA builds upon the source code and data from the following project(s):
-* [EnQA](https://github.com/BioinfoMachineLearning/EnQA)
-
 We thank all their contributors and maintainers!
-
 
 ## Citing this work <a name="citations"></a>
 
-If you use the code or data associated with the GCPNet foundational models within this package or otherwise find such work useful, please cite:
+If you use the code or data associated with the GCPNet models within this package or otherwise find such work useful, please cite:
 
 ```bibtex
 @article{morehead2023gcpnet,
   title={Geometry-Complete Perceptron Networks for 3D Molecular Graphs},
   author={Morehead, Alex and Cheng, Jianlin},
   journal={AAAI Workshop on Deep Learning on Graphs: Methods and Applications},
-  year={2023}
-}
-```
-
-If you use the code or data associated with the GCPNet-EMA model within this package or otherwise find such work useful, please cite:
-
-```bibtex
-@article{morehead2023gcpnet_ema,
-  title={Protein Structure Accuracy Estimation using Geometry-Complete Perceptron Networks},
-  author={Morehead, Alex and Cheng, Jianlin},
   year={2023}
 }
 ```

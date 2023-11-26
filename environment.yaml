@@ -82,7 +82,6 @@ dependencies:
   - lame=3.100=h7f98852_1001
   - lcms2=2.15=hfd0df8a_0
   - ld_impl_linux-64=2.40=h41732ed_0
-  - lddt=2.2=h9ee0642_0
   - lerc=4.0.0=h27087fc_0
   - libabseil=20230125.3=cxx17_h59595ed_0
   - libapr=1.7.0=h7f98852_5
