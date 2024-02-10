@@ -337,10 +337,10 @@ We thank all their contributors and maintainers!
 If you use the code or data associated with the GCPNet models within this package or otherwise find such work useful, please cite:
 
 ```bibtex
-@article{morehead2023gcpnet,
+@article{morehead2024gcpnet,
   title={Geometry-Complete Perceptron Networks for 3D Molecular Graphs},
   author={Morehead, Alex and Cheng, Jianlin},
-  journal={AAAI Workshop on Deep Learning on Graphs: Methods and Applications},
-  year={2023}
+  journal={Bioinformatics},
+  year={2024}
 }
 ```
