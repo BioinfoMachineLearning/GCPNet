@@ -5,7 +5,7 @@
 <a href="https://pytorch.org/get-started/locally/"><img alt="PyTorch" src="https://img.shields.io/badge/PyTorch-ee4c2c?logo=pytorch&logoColor=white"></a>
 <a href="https://pytorchlightning.ai/"><img alt="Lightning" src="https://img.shields.io/badge/-Lightning-792ee5?logo=pytorchlightning&logoColor=white"></a>
 <a href="https://hydra.cc/"><img alt="Config: Hydra" src="https://img.shields.io/badge/Config-Hydra-89b8cd"></a>
-[![Paper](http://img.shields.io/badge/arXiv-2211.02504-B31B1B.svg)](https://arxiv.org/abs/2211.02504)
+[![Paper](http://img.shields.io/badge/arXiv-2211.02504-B31B1B.svg)](https://academic.oup.com/bioinformatics/advance-article/doi/10.1093/bioinformatics/btae087/7610880)
 <!-- [![Conference](http://img.shields.io/badge/AnyConference-year-4b44ce.svg)](https://papers.nips.cc/paper/2020) -->
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.7293186.svg)](https://doi.org/10.5281/zenodo.7293186)
 
@@ -19,7 +19,7 @@
 
 ## Description
 
-A PyTorch implementation of Geometry-Complete SE(3)-Equivariant Perceptron Networks (GCPNets)
+A PyTorch implementation of [Geometry-Complete SE(3)-Equivariant Perceptron Networks (GCPNets)](https://academic.oup.com/bioinformatics/advance-article/doi/10.1093/bioinformatics/btae087/7610880)
 
 <details open><summary><b>Table of contents</b></summary>
 
