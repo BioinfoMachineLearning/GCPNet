@@ -11,7 +11,7 @@
 
 **Update**: Also consider checking out our new diffusion generative model, GCDM, that uses GCPNet to improve equivariant diffusion models for 3D molecule generation in multiple ways. The GCDM [GitHub](https://github.com/BioinfoMachineLearning/bio-diffusion) and [paper](https://arxiv.org/abs/2302.04313).
 
-**Update**: Also consider checking out the new ProteinWorkshop benchmark which features GCPNet as a state-of-the-art geometric graph neural network for representation learning of 3D protein structures. [GitHub](https://github.com/a-r-j/ProteinWorkshop) and [paper](https://openreview.net/forum?id=sTYuRVrdK3).
+**Update**: Also consider checking out the new ProteinWorkshop benchmark which features GCPNet as a state-of-the-art geometric GNN for representation learning of 3D protein structures. [GitHub](https://github.com/a-r-j/ProteinWorkshop) and [paper](https://openreview.net/forum?id=sTYuRVrdK3).
 
 ![GCP_Architecture.png](./img/GCPNet.png)
 
