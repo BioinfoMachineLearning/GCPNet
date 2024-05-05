@@ -13,6 +13,8 @@
 
 **Update**: Also consider checking out the new ProteinWorkshop benchmark which features GCPNet as a state-of-the-art geometric GNN for representation learning of 3D protein structures. [GitHub](https://github.com/a-r-j/ProteinWorkshop) and [paper](https://openreview.net/forum?id=sTYuRVrdK3).
 
+**Update**: Also consider checking out the new GCPNet-EMA codebase which deploys GCPNet as a fast, state-of-the-art quality assessment method for 3D protein structures. [GitHub](https://github.com/BioinfoMachineLearning/GCPNet-EMA) and [paper](https://onlinelibrary.wiley.com/doi/10.1002/pro.4932).
+
 ![GCP_Architecture.png](./img/GCPNet.png)
 
 </div>
