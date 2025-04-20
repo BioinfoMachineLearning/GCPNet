@@ -340,9 +340,13 @@ If you use the code or data associated with the GCPNet models within this packag
 
 ```bibtex
 @article{morehead2024gcpnet,
-  title={Geometry-Complete Perceptron Networks for 3D Molecular Graphs},
+  title={Geometry-complete perceptron networks for 3D molecular graphs},
   author={Morehead, Alex and Cheng, Jianlin},
   journal={Bioinformatics},
-  year={2024}
+  volume={40},
+  number={2},
+  pages={btae087},
+  year={2024},
+  publisher={Oxford University Press}
 }
 ```
